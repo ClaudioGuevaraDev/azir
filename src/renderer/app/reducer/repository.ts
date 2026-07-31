@@ -1,3 +1,4 @@
+import type { Effect } from '../effects';
 import {
   initialRepositoryState,
   pathStillExists,
@@ -205,6 +206,79 @@ export const repositoryReducer: SliceReducer<RepositoryState> = (
         return idle(state);
       }
       return changed({ ...state, view: action.view });
+    }
+
+    case 'fs/changed': {
+      /*
+       * The targeted response the spec asks for, rather than a full refresh.
+       *
+       * What that means concretely, and why each rule is worth having:
+       *
+       *  - **Only directories that are already loaded are rescanned.** Reloading one
+       *    the user has never opened would do filesystem work to update something
+       *    invisible — and during an `npm install` that is thousands of directories.
+       *  - **A content change rescans nothing.** The listing is unchanged; only the
+       *    file's bytes moved, which matters to the viewer (M6) and not to the tree.
+       *  - **Git is refreshed whenever anything changed at all**, not only on a `.git`
+       *    write: editing a tracked file changes its status without touching `.git`.
+       *  - **A truncated batch refreshes what is loaded** instead of trying to apply a
+       *    path list it knows is incomplete.
+       */
+      const { batch } = action;
+
+      const candidates = batch.truncated
+        ? Object.keys(state.directories)
+        : batch.directories.filter((path) => state.directories[path] !== undefined);
+
+      // Loaded, not merely known: a directory left in `failed` or `loading` has nothing
+      // worth reconciling, and re-requesting a failed one on every save would retry a
+      // permission error in a loop.
+      const reloadable = candidates.filter((path) => state.directories[path]?.status === 'loaded');
+
+      const effects: Effect[] = [];
+      const pending: Record<string, string> = { ...state.pending };
+
+      for (const path of reloadable) {
+        const requestId = action.directoryRequestIds[path];
+        if (requestId === undefined) {
+          continue;
+        }
+        pending[path] = requestId;
+        effects.push({
+          type: 'repository/listDirectory',
+          sessionId: action.sessionId,
+          path,
+          requestId,
+        });
+      }
+
+      const gitWorthRefreshing =
+        state.git.status !== 'unavailable' &&
+        (batch.gitDirty ||
+          batch.truncated ||
+          batch.directories.length > 0 ||
+          batch.files.length > 0);
+
+      if (gitWorthRefreshing) {
+        effects.push({
+          type: 'git/status',
+          sessionId: action.sessionId,
+          requestId: action.gitRequestId,
+        });
+      }
+
+      if (effects.length === 0) {
+        return idle(state);
+      }
+
+      return withEffects(
+        {
+          ...state,
+          pending,
+          gitRequestId: gitWorthRefreshing ? action.gitRequestId : state.gitRequestId,
+        },
+        ...effects,
+      );
     }
 
     case 'git/refreshRequested': {

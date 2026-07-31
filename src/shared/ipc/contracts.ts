@@ -197,6 +197,35 @@ export interface GitStatusResponse {
   readonly files: readonly GitFileStatus[];
 }
 
+// ------------------------------------------------------------------- fs:*
+
+export type FsEventKind = 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir';
+
+/**
+ * A coalesced set of filesystem changes.
+ *
+ * Already translated from raw events into consequences, so the reducer never has to
+ * know filesystem semantics: an add or a delete makes a *directory* stale, a write
+ * makes a *file* stale, and anything under the watched `.git` paths is just one bit.
+ */
+export interface FsChangeBatch {
+  readonly sessionId: WorkspaceSessionId;
+  /** Directories whose listing is stale, workspace-relative POSIX. */
+  readonly directories: readonly string[];
+  /** Files whose contents changed. */
+  readonly files: readonly string[];
+  /** A commit, checkout, stage or branch switch happened. */
+  readonly gitDirty: boolean;
+  /**
+   * The batch exceeded its path budget, so the lists are incomplete.
+   *
+   * A change set this large is a checkout or an install rather than an edit, and the
+   * right response is to refresh what is on screen instead of trying to apply
+   * thousands of individual paths.
+   */
+  readonly truncated: boolean;
+}
+
 // ------------------------------------------------------------- terminal:*
 
 /**

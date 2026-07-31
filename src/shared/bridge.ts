@@ -1,6 +1,7 @@
 import type {
   CreateTerminalRequest,
   CreateTerminalResponse,
+  FsChangeBatch,
   GitStatusRequest,
   GitStatusResponse,
   KillTerminalRequest,
@@ -48,6 +49,11 @@ export interface AppBridge {
 
   readonly files: {
     listDirectory(request: ListDirectoryRequest): Promise<Result<ListDirectoryResponse>>;
+  };
+
+  readonly fs: {
+    /** Coalesced batches of workspace changes. See main/watcher/batcher.ts. */
+    onChanged(listener: (batch: FsChangeBatch) => void): Unsubscribe;
   };
 
   readonly git: {

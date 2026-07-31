@@ -44,6 +44,7 @@ const sessionOf = (action: Action): WorkspaceSessionId | undefined => {
     case 'git/refreshRequested':
     case 'git/refreshed':
     case 'git/refreshFailed':
+    case 'fs/changed':
       return action.sessionId;
     default:
       return undefined;

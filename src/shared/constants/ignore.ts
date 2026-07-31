@@ -76,3 +76,31 @@ export const isGitStateChange = (relativePosix: string): boolean =>
   GIT_DIR_TRIGGERS.some(
     (trigger) => relativePosix === trigger || relativePosix.startsWith(`${trigger}/`),
   );
+
+/**
+ * Whether the filesystem watcher should follow a path.
+ *
+ * This is the asymmetry the two lists exist to express: `.git` is hidden from the
+ * tree, but a handful of paths inside it have to be watched, because that is how a
+ * commit or a checkout made in the integrated terminal becomes visible in the panel.
+ * Everything else under `.git` — above all `objects`, which churns on every write —
+ * is refused so chokidar never descends into it.
+ */
+export const shouldWatchPath = (relativePosix: string): boolean => {
+  if (relativePosix === '') {
+    return true;
+  }
+
+  const segments = relativePosix.split('/');
+
+  if (segments[0] === '.git') {
+    return (
+      relativePosix === '.git' ||
+      GIT_DIR_TRIGGERS.some(
+        (trigger) => relativePosix === trigger || relativePosix.startsWith(`${trigger}/`),
+      )
+    );
+  }
+
+  return !segments.some((segment) => IGNORED_DIRECTORY_NAMES.has(segment));
+};

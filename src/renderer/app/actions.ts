@@ -1,5 +1,6 @@
 import type {
   DirectoryEntry,
+  FsChangeBatch,
   GitStatusResponse,
   TerminalPaneId,
   WorkspaceInfo,
@@ -77,6 +78,20 @@ export type Action =
   | { readonly type: 'repository/collapsed'; readonly path: string }
   | { readonly type: 'repository/selected'; readonly path: string }
   | { readonly type: 'repository/viewChanged'; readonly view: RepositoryView }
+  /**
+   * A coalesced batch of workspace changes.
+   *
+   * Carries pre-minted request ids because the response to it is a set of reloads, and
+   * the reducer cannot mint ids — see runtime/eventPump.ts.
+   */
+  | {
+      readonly type: 'fs/changed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly batch: FsChangeBatch;
+      readonly gitRequestId: RequestId;
+      /** One id per directory the reducer might reload, keyed by path. */
+      readonly directoryRequestIds: Readonly<Record<string, RequestId>>;
+    }
   | {
       readonly type: 'git/refreshRequested';
       readonly sessionId: WorkspaceSessionId;

@@ -46,6 +46,10 @@ const bridge: AppBridge = {
     listDirectory: (request) => ipcRenderer.invoke(CHANNELS.filesListDirectory, request),
   },
 
+  fs: {
+    onChanged: (listener) => subscribe(CHANNELS.eventFsChanged, listener),
+  },
+
   git: {
     status: (request) => ipcRenderer.invoke(CHANNELS.gitStatus, request),
   },

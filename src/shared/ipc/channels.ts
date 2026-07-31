@@ -30,6 +30,7 @@ export const CHANNELS = {
   // reaches the reducer.
   eventTerminalData: 'event:terminal:data',
   eventTerminalExit: 'event:terminal:exit',
+  eventFsChanged: 'event:fs:changed',
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];

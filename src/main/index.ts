@@ -61,10 +61,11 @@ const bootstrap = async (): Promise<void> => {
    */
   app.on('before-quit', () => {
     context.sessions.closeAll();
-    // Belt and braces: `closeAll` kills the panes the live session owned, and this
-    // catches anything left over. An orphan shell in Task Manager is the failure
-    // mode, and it is invisible until the user goes looking.
+    // Belt and braces: `closeAll` releases what the live session owned, and these
+    // catch anything left over. An orphan shell in Task Manager is the failure mode,
+    // and it is invisible until the user goes looking.
     context.terminals.disposeAll();
+    context.watcher.stopAll();
   });
 
   await app.whenReady();

@@ -1,6 +1,7 @@
 import type { AppBridge, Unsubscribe } from '@shared/bridge';
 import type { TerminalPaneId, WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { TerminalRegistry } from '../../terminal/registry';
+import { nextRequestId } from './requestIds';
 import type { Dispatch } from '../store';
 
 /**
@@ -28,6 +29,8 @@ export interface EventPumpOptions {
   readonly dispatch: Dispatch;
   /** Which pane is on screen. Read lazily, because it changes constantly. */
   readonly activePaneId: () => TerminalPaneId | null;
+  /** Directory paths the tree has loaded, for pre-minting ids on a truncated batch. */
+  readonly loadedDirectories: () => readonly string[];
   readonly activityThrottleMs?: number;
   readonly now?: () => number;
 }
@@ -67,6 +70,39 @@ export const startEventPump = (options: EventPumpOptions): EventPump => {
       // Straight to the pane's xterm instance. No action, no state, no re-render.
       options.registry.write(event.paneId, event.data);
       noteActivity(event.sessionId, event.paneId);
+    }),
+  );
+
+  subscriptions.push(
+    options.bridge.fs.onChanged((batch) => {
+      /*
+       * Request ids are pre-minted here, at the dispatch edge.
+       *
+       * The reducer decides *which* directories to reload — it is the only thing that
+       * knows which are loaded — but it cannot mint the ids those reloads need without
+       * becoming impure. So one id is minted per candidate path up front and the
+       * reducer picks the ones it uses. Minting a few ids that go unused is the price
+       * of keeping the reducer deterministic and snapshot-testable.
+       */
+      const directoryRequestIds: Record<string, string> = {};
+      for (const directory of batch.directories) {
+        directoryRequestIds[directory] = nextRequestId();
+      }
+      // A truncated batch makes the reducer reload everything already loaded, so those
+      // paths need ids too.
+      if (batch.truncated) {
+        for (const directory of options.loadedDirectories()) {
+          directoryRequestIds[directory] ??= nextRequestId();
+        }
+      }
+
+      options.dispatch({
+        type: 'fs/changed',
+        sessionId: batch.sessionId,
+        batch,
+        gitRequestId: nextRequestId(),
+        directoryRequestIds,
+      });
     }),
   );
 

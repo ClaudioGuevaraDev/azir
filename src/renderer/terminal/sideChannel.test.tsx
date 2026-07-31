@@ -63,6 +63,7 @@ const setup = (activePaneId: string | null): Harness => {
   let exitListener: ((event: TerminalExitEvent) => void) | undefined;
 
   const bridge = {
+    fs: { onChanged: () => () => {} },
     terminal: {
       onData: (listener: (event: TerminalDataEvent) => void) => {
         dataListener = listener;
@@ -94,6 +95,7 @@ const setup = (activePaneId: string | null): Harness => {
     registry,
     dispatch: store.dispatch,
     activePaneId: () => store.getState().terminals.activePaneId,
+    loadedDirectories: () => Object.keys(store.getState().repository.directories),
     now: () => clock,
   });
 

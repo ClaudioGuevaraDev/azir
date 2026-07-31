@@ -138,16 +138,27 @@ needs CI with a platform matrix or real hardware.
 | M0 — shell, security, boundaries           | done        |
 | M1 — typed IPC spine, reducer/effect store | done        |
 | M2 — integrated terminal                   | done        |
-| M3 — filesystem and repository tree        | not started |
-| M4 — git status and diff                   | not started |
-| M5 — filesystem watcher                    | not started |
-| M6 — code viewer                           | not started |
+| M3 — filesystem and repository tree        | done        |
+| M4 — git status                            | done        |
+| M5 — filesystem watcher                    | done        |
+| M6 — code viewer and diff                  | not started |
 | M7 — editing, layout, overlays             | not started |
 | M8 — settings and search                   | not started |
 
-Azir currently opens a folder and gives you a working integrated terminal with
-several concurrent PTYs. The repository tree, git status, diff and viewer panels
-are the next three milestones.
+The product's core loop works today: an agent changes files, the workspace notices
+without being asked, and the repository panel shows what moved next to a live
+terminal. What is missing is the middle of the review step — the viewer that lets
+you read the file and its diff, which is M6.
+
+The watcher is the piece that makes the loop closed rather than manual. Raw
+filesystem events are coalesced in the main process — by path, behind a trailing
+debounce, with a ceiling on the wait so a continuous writer cannot starve the
+batch — and translated into consequences before they cross IPC: an add or a delete
+makes a _directory_ stale, a write makes a _file_ stale, and a change under the
+few watched `.git` paths is one bit. The reducer's response is targeted rather
+than a full refresh: only directories that are actually loaded get rescanned, a
+content change rescans nothing, and a batch that overflows its path budget
+refreshes what is on screen instead of applying a list it knows is incomplete.
 
 ### Deviations from the spec, and why
 

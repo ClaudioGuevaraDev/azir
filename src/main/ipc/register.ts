@@ -47,9 +47,17 @@ export const registerIpcHandlers = (context: AppContext): void => {
 
   // handleResult, not handle: "that folder does not exist" is an ordinary outcome
   // the reducer should render, not an exception.
-  handleResult(CHANNELS.workspaceOpen, workspaceOpenRequestSchema, (request) =>
-    context.sessions.open(request.path),
-  );
+  handleResult(CHANNELS.workspaceOpen, workspaceOpenRequestSchema, async (request) => {
+    const opened = await context.sessions.open(request.path);
+    if (opened.ok) {
+      // Started here rather than on a separate channel so a workspace is never live
+      // without a watcher — the gap would be a window in which an agent's changes go
+      // unnoticed. A watcher that fails to start reports and leaves manual refresh
+      // working.
+      context.watcher.start(opened.value.sessionId, opened.value.root);
+    }
+    return opened;
+  });
 
   handle(
     CHANNELS.workspaceClose,

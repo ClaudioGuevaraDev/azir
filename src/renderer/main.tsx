@@ -34,6 +34,7 @@ startEventPump({
   registry,
   dispatch: store.dispatch,
   activePaneId: () => selectActivePaneId(store.getState()),
+  loadedDirectories: () => Object.keys(store.getState().repository.directories),
 });
 
 createRoot(container).render(

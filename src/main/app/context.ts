@@ -4,6 +4,7 @@ import { createRendererChannel, type RendererChannel } from './rendererChannel';
 import { createFileService, type FileService } from '../filesystem/fileService';
 import { createGitService, type GitService } from '../git/gitService';
 import { createTerminalManager, type TerminalManager } from '../terminal/terminalManager';
+import { createWatcherService, type WatcherService } from '../watcher/watcherService';
 import { createSessionRegistry, type SessionRegistry } from '../workspace/sessions';
 
 /**
@@ -20,6 +21,7 @@ export interface AppContext {
   readonly files: FileService;
   readonly git: GitService;
   readonly terminals: TerminalManager;
+  readonly watcher: WatcherService;
   readonly renderer: RendererChannel;
 }
 
@@ -42,12 +44,26 @@ export const createAppContext = (overrides: AppContextOverrides = {}): AppContex
       },
     });
 
-  // Closing a workspace kills the PTYs it owned; closing the app kills the rest
-  // via `disposeAll` from `before-quit`. Wiring it here rather than inside the
-  // registry keeps the registry ignorant of terminals — it only knows that
-  // something wants to be told.
+  const watcher =
+    overrides.watcher ??
+    createWatcherService({
+      emit: (batch) => {
+        renderer.send(CHANNELS.eventFsChanged, batch);
+      },
+      onFailure: (_sessionId, detail) => {
+        // Logged, not surfaced as an error state: the spec requires that a watcher
+        // failure not disable manual refresh, so the panel degrades rather than breaks.
+        console.warn('[watcher] failed:', detail);
+      },
+    });
+
+  // Closing a workspace releases everything it owned; closing the app releases the
+  // rest from `before-quit`. Wiring it here rather than inside the registry keeps the
+  // registry ignorant of terminals and watchers — it only knows something wants to be
+  // told.
   sessions.onDispose((session) => {
     terminals.killSession(session.id);
+    watcher.stop(session.id);
   });
 
   return {
@@ -56,6 +72,7 @@ export const createAppContext = (overrides: AppContextOverrides = {}): AppContex
     files: overrides.files ?? createFileService(),
     git: overrides.git ?? createGitService(),
     terminals,
+    watcher,
     renderer,
   };
 };
