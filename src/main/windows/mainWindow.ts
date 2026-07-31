@@ -24,8 +24,11 @@ export const createMainWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 560,
-    minHeight: 360,
+    // Small enough that the layout engine's single-panel fallback is actually reachable
+    // rather than theoretical. The spec requires a reduced window to degrade usefully, and a
+    // floor that keeps three panels visible would make that promise untestable.
+    minWidth: 400,
+    minHeight: 280,
     // Shown on 'ready-to-show' instead. The spec requires the window to become
     // visible before expensive workspace work finishes, and an unpainted window
     // is worse than a slightly later one.

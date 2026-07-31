@@ -2,6 +2,7 @@ import type { WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { Action } from '../actions';
 import { dedupeEffects } from '../effects';
 import type { AppState } from '../state';
+import { focusReducer, layoutReducer, overlayReducer } from './chrome';
 import { combineSlices, type Reduction } from './combine';
 import { noticesReducer } from './notices';
 import { repositoryReducer } from './repository';
@@ -21,6 +22,9 @@ const combined = combineSlices<AppState>({
   repository: repositoryReducer,
   viewer: viewerReducer,
   terminals: terminalsReducer,
+  layout: layoutReducer,
+  focus: focusReducer,
+  overlays: overlayReducer,
   notices: noticesReducer,
 });
 

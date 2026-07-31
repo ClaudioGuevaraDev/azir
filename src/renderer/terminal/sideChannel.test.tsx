@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppBridge } from '@shared/bridge';
 import type { TerminalDataEvent, TerminalExitEvent } from '@shared/ipc/contracts';
 import { StoreProvider, useAppState } from '../app/react';
+import { initialFocusState, initialLayoutState, initialOverlayState } from '../app/chrome';
 import { initialRepositoryState } from '../app/repository';
 import { initialViewerState } from '../app/viewer';
 import { startEventPump } from '../app/runtime/eventPump';
@@ -56,6 +57,9 @@ const openWorkspaceState = (activePaneId: string | null): AppState => {
     repository: initialRepositoryState,
     viewer: initialViewerState,
     terminals: { panes: [pane], activePaneId, nextPaneSeq: 2 },
+    layout: initialLayoutState,
+    focus: initialFocusState,
+    overlays: initialOverlayState,
     notices: { items: [], nextId: 1 },
   };
 };

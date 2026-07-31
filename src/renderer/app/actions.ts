@@ -10,6 +10,8 @@ import type {
   WorkspaceSessionId,
 } from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
+import type { Arrangement, Panel } from '@shared/models/layout';
+import type { Overlay } from './chrome';
 import type { RepositoryView } from './repository';
 import { nextRequestId } from './runtime/requestIds';
 import type { RequestId, Severity } from './state';
@@ -212,6 +214,16 @@ export type Action =
       readonly sessionId: WorkspaceSessionId;
       readonly paneId: TerminalPaneId;
     }
+  // ---- chrome: geometry, focus, overlays
+  | { readonly type: 'layout/resized'; readonly width: number; readonly height: number }
+  | { readonly type: 'layout/arrangementChanged'; readonly arrangement: Arrangement }
+  | {
+      readonly type: 'layout/orderChanged';
+      readonly order: readonly [Panel, Panel, Panel];
+    }
+  | { readonly type: 'focus/changed'; readonly panel: Panel }
+  | { readonly type: 'overlay/opened'; readonly overlay: Overlay }
+  | { readonly type: 'overlay/closed' }
   // ---- notices
   | {
       readonly type: 'notice/raised';

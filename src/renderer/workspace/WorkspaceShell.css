@@ -39,6 +39,14 @@
   text-align: left;
 }
 
+.shell__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--azir-space-2);
+}
+
+.shell__action,
 .shell__close {
   flex: none;
   padding: var(--azir-space-1) var(--azir-space-3);
@@ -51,28 +59,10 @@
     border-color var(--azir-transition-fast);
 }
 
+.shell__action:hover,
 .shell__close:hover {
   color: var(--azir-text);
   border-color: var(--azir-text-dim);
-}
-
-.shell__panels {
-  display: grid;
-  grid-template-columns: minmax(180px, 280px) 1fr;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* Viewer above, terminal below: the reading area gets the space it needs. */
-.shell__stack {
-  display: grid;
-  grid-template-rows: 1fr minmax(120px, 38%);
-  overflow: hidden;
-  min-height: 0;
-}
-
-.shell__stack > * + * {
-  border-top: 1px solid var(--azir-border);
 }
 
 .shell__status {
@@ -85,4 +75,8 @@
   color: var(--azir-text-dim);
   font-family: var(--azir-font-mono);
   font-size: var(--azir-text-xs);
+}
+
+.shell__hint {
+  margin-left: auto;
 }

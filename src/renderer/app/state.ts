@@ -5,6 +5,16 @@ import type {
   WorkspaceSessionId,
 } from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
+import type { Panel } from '@shared/models/layout';
+import {
+  initialFocusState,
+  initialLayoutState,
+  initialOverlayState,
+  type FocusState,
+  type LayoutState,
+  type Overlay,
+  type OverlayState,
+} from './chrome';
 import { activeTab, initialViewerState, type ViewerState, type ViewerTab } from './viewer';
 import {
   initialRepositoryState,
@@ -104,6 +114,9 @@ export interface AppState {
   readonly repository: RepositoryState;
   readonly viewer: ViewerState;
   readonly terminals: TerminalsState;
+  readonly layout: LayoutState;
+  readonly focus: FocusState;
+  readonly overlays: OverlayState;
   readonly notices: NoticesState;
 }
 
@@ -112,6 +125,9 @@ export const initialState: AppState = {
   repository: initialRepositoryState,
   viewer: initialViewerState,
   terminals: { panes: [], activePaneId: null, nextPaneSeq: 1 },
+  layout: initialLayoutState,
+  focus: initialFocusState,
+  overlays: initialOverlayState,
   notices: { items: [], nextId: 1 },
 };
 
@@ -155,6 +171,12 @@ export const selectActiveTab = (state: AppState): ViewerTab | undefined => activ
  * Git's view of the active tab's path, so the viewer can tell an untracked file from a
  * modified one without asking git again.
  */
+export const selectLayout = (state: AppState): LayoutState => state.layout;
+
+export const selectFocusedPanel = (state: AppState): Panel => state.focus.panel;
+
+export const selectOverlay = (state: AppState): Overlay | null => state.overlays.current;
+
 export const selectActiveTabGitStatus = (state: AppState): GitFileStatus | undefined => {
   const tab = activeTab(state.viewer);
   if (!tab || state.repository.git.status !== 'ready') {
