@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { ARRANGEMENTS, PANELS, type Arrangement, type Panel } from '@shared/models/layout';
+import { CODE_FONT_SIZE_RANGE, SHELL_KINDS, type ShellKind } from '@shared/models/settings';
 import { reloadRequested } from '../app/actions';
 import type { ConfirmIntent, Overlay } from '../app/chrome';
 import { useAppState, useDispatch } from '../app/react';
 import { documentedBindings } from '../app/runtime/keybindings';
-import { selectLayout, selectOverlay, selectSessionId } from '../app/state';
+import { selectLayout, selectOverlay, selectSessionId, selectSettings } from '../app/state';
 import './OverlayHost.css';
 
 const TITLES: Record<Overlay['type'], string> = {
@@ -182,8 +183,21 @@ const PANEL_LABELS: Record<Panel, string> = {
   terminal: 'Terminal',
 };
 
+const SHELL_LABELS: Record<ShellKind, string> = {
+  default: 'Platform default',
+  powershell: 'PowerShell',
+  pwsh: 'PowerShell 7',
+  cmd: 'Command Prompt',
+  bash: 'Bash',
+  zsh: 'Zsh',
+};
+
+const range = (from: number, to: number): number[] =>
+  Array.from({ length: to - from + 1 }, (_, index) => from + index);
+
 const SettingsBody = (): React.JSX.Element => {
   const layout = useAppState(selectLayout);
+  const settings = useAppState(selectSettings);
   const dispatch = useDispatch();
 
   /**
@@ -246,9 +260,81 @@ const SettingsBody = (): React.JSX.Element => {
         ))}
       </section>
 
-      <p className="overlay__note">
-        Not persisted yet — settings are written to disk in the next milestone.
-      </p>
+      <section className="overlay__group">
+        <h3 className="overlay__group-title">Shell</h3>
+        <div className="overlay__choices">
+          {SHELL_KINDS.map((shell) => (
+            <button
+              key={shell}
+              type="button"
+              className="overlay__choice"
+              data-active={settings.terminal.shell === shell}
+              data-testid={`setting-shell-${shell}`}
+              onClick={() => dispatch({ type: 'settings/shellChanged', shell })}
+            >
+              {SHELL_LABELS[shell]}
+            </button>
+          ))}
+        </div>
+        {/*
+          Said out loud rather than left to be discovered. There is no way to change a running
+          process's executable, so panes that are already open keep the shell they started with —
+          a user who picks a new shell and sees the current pane unchanged would otherwise
+          reasonably conclude the setting does not work.
+        */}
+        <p className="overlay__note">Applies to terminal panes opened from now on.</p>
+      </section>
+
+      <section className="overlay__group">
+        <h3 className="overlay__group-title">Tab width</h3>
+        <div className="overlay__choices">
+          {[2, 4, 8].map((tabWidth) => (
+            <button
+              key={tabWidth}
+              type="button"
+              className="overlay__choice"
+              data-active={settings.editor.tabWidth === tabWidth}
+              data-testid={`setting-tab-width-${tabWidth}`}
+              onClick={() => dispatch({ type: 'settings/tabWidthChanged', tabWidth })}
+            >
+              {tabWidth} spaces
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="overlay__group">
+        <h3 className="overlay__group-title">Code font size</h3>
+        <div className="overlay__choices">
+          {range(CODE_FONT_SIZE_RANGE.min, CODE_FONT_SIZE_RANGE.max)
+            .filter((size) => size % 2 === 0)
+            .map((codeFontSize) => (
+              <button
+                key={codeFontSize}
+                type="button"
+                className="overlay__choice"
+                data-active={settings.appearance.codeFontSize === codeFontSize}
+                data-testid={`setting-font-size-${codeFontSize}`}
+                onClick={() => dispatch({ type: 'settings/codeFontSizeChanged', codeFontSize })}
+              >
+                {codeFontSize}
+              </button>
+            ))}
+        </div>
+      </section>
+
+      {settings.invalidFields.length > 0 && (
+        <p className="overlay__note" data-warning data-testid="settings-invalid">
+          {/*
+            The settings file had values Azir could not use, and they were reset one field at a
+            time. Naming them is the difference between "my edit did nothing" and "my edit was
+            wrong" — without this the fallback is indistinguishable from the application ignoring
+            the user.
+          */}
+          Reset to defaults because the settings file could not be read:{' '}
+          {settings.invalidFields.join(', ')}.
+        </p>
+      )}
     </div>
   );
 };

@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import { ARRANGEMENTS, PANELS } from '../models/layout';
+import {
+  CODE_FONT_SIZE_RANGE,
+  SHELL_KINDS,
+  TAB_WIDTH_RANGE,
+  type Settings,
+} from '../models/settings';
 
 /**
  * Request schemas and response types for every channel.
@@ -332,10 +339,15 @@ export interface FsChangeBatch {
  */
 export type TerminalPaneId = string;
 
-/** Which shell to start. `default` lets main pick per platform. */
-export const shellKindSchema = z.enum(['default', 'powershell', 'pwsh', 'cmd', 'bash', 'zsh']);
+/**
+ * Which shell to start. `default` lets main pick per platform.
+ *
+ * Built from `SHELL_KINDS` rather than repeating the list, so the settings UI cannot offer a
+ * shell this schema would reject.
+ */
+export const shellKindSchema = z.enum(SHELL_KINDS);
 
-export type ShellKind = z.infer<typeof shellKindSchema>;
+export type { ShellKind } from '../models/settings';
 
 const sessionScoped = {
   sessionId: z.number().int().nonnegative(),
@@ -343,14 +355,19 @@ const sessionScoped = {
 };
 
 /**
- * Note what is absent: `cwd`. The working directory is derived in main from the
- * session's recorded root, so the renderer cannot start a shell outside the
- * workspace.
+ * Note what is absent: `cwd` and `shell`.
+ *
+ * Both are derived in main. The working directory comes from the session's recorded root, so the
+ * renderer cannot start a shell outside the workspace. The shell comes from the settings store,
+ * which main already owns — and it belongs there for the same reason: choosing which executable
+ * to spawn is the single most powerful thing this application does, and it should not be
+ * decided by an argument the renderer supplies.
+ *
+ * The setting used to be a renderer-supplied `shell` field. Removing it also removed the
+ * cross-slice problem it created: the terminals slice cannot see the settings slice, so it could
+ * never have read the value it was expected to send.
  */
-export const createTerminalRequestSchema = z.object({
-  ...sessionScoped,
-  shell: shellKindSchema.default('default'),
-});
+export const createTerminalRequestSchema = z.object(sessionScoped);
 
 export type CreateTerminalRequest = z.input<typeof createTerminalRequestSchema>;
 
@@ -395,3 +412,65 @@ export interface TerminalExitEvent {
   readonly exitCode: number | null;
   readonly signal?: number;
 }
+
+// -------------------------------------------------------------- settings:*
+
+/**
+ * What the renderer receives at startup.
+ *
+ * `invalidFields` travels with the settings rather than being logged in main, because the person
+ * who needs to know is the one who edited the file. A value silently reset is indistinguishable
+ * from the application ignoring them.
+ */
+export interface SettingsSnapshot {
+  readonly settings: Settings;
+  readonly invalidFields: readonly string[];
+}
+
+const layoutSettingsSchema = z.object({
+  order: z
+    .tuple([z.enum(PANELS), z.enum(PANELS), z.enum(PANELS)])
+    // Validated as a permutation here as well as in `parseSettings`: this is the untrusted path,
+    // and an order containing the same panel twice would delete a panel from the application.
+    .refine((order) => new Set(order).size === 3, {
+      message: 'order must contain each panel exactly once',
+    }),
+  arrangement: z.enum(ARRANGEMENTS),
+});
+
+/**
+ * Every group is optional, and at least one must be present.
+ *
+ * A patch that names no group would schedule a write of unchanged content — harmless, because
+ * the store deduplicates, but it is a request that cannot mean anything and the boundary is
+ * where that gets said.
+ */
+export const saveSettingsRequestSchema = z
+  .object({
+    layout: layoutSettingsSchema.optional(),
+    terminal: z.object({ shell: shellKindSchema }).optional(),
+    editor: z
+      .object({ tabWidth: z.number().int().min(TAB_WIDTH_RANGE.min).max(TAB_WIDTH_RANGE.max) })
+      .optional(),
+    appearance: z
+      .object({
+        codeFontSize: z.number().int().min(CODE_FONT_SIZE_RANGE.min).max(CODE_FONT_SIZE_RANGE.max),
+      })
+      .optional(),
+  })
+  .refine((patch) => Object.values(patch).some((group) => group !== undefined), {
+    message: 'a settings patch must name at least one group',
+  });
+
+/**
+ * Written out from `Settings` rather than inferred from the schema above.
+ *
+ * The schema is the runtime gate on an untrusted payload; this is the domain type callers build
+ * against, and it keeps the deep readonly-ness that `Settings` declares — `z.tuple` infers a
+ * mutable tuple, which would quietly make `layout.order` writable everywhere a patch is handled.
+ * The two are checked against each other at the one place that matters: main's handler passes the
+ * parsed payload straight into `SettingsStore.merge`.
+ */
+export type SaveSettingsRequest = {
+  readonly [K in keyof Settings]?: Settings[K] | undefined;
+};

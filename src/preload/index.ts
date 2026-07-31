@@ -64,6 +64,13 @@ const bridge: AppBridge = {
     diff: (request) => ipcRenderer.invoke(CHANNELS.gitDiff, request),
   },
 
+  settings: {
+    load: () => ipcRenderer.invoke(CHANNELS.settingsLoad),
+    save: (request) => {
+      ipcRenderer.send(CHANNELS.settingsSave, request);
+    },
+  },
+
   terminal: {
     create: (request) => ipcRenderer.invoke(CHANNELS.terminalCreate, request),
     // `send`, not `invoke`: there is no reply to wait for, and a round trip per

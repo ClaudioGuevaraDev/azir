@@ -30,6 +30,18 @@ export const CHANNELS = {
   gitStatus: 'git:status',
   gitDiff: 'git:diff',
 
+  /**
+   * Read once at renderer startup. Main has already loaded and validated the file by the time a
+   * window exists, so this returns a cached value rather than touching the disk.
+   */
+  settingsLoad: 'settings:load',
+  /**
+   * A patch, not a whole document: the renderer's slices each own one group and cannot see the
+   * others, and main holds the authoritative persisted copy. Fire-and-forget, because the write
+   * is debounced in main and there is no outcome the UI waits on.
+   */
+  settingsSave: 'settings:save',
+
   terminalCreate: 'terminal:create',
   terminalWrite: 'terminal:write',
   terminalResize: 'terminal:resize',

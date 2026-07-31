@@ -173,6 +173,30 @@ export const createEffectRunner = (bridge: AppBridge): EffectRunner => {
         return;
       }
 
+      case 'settings/load': {
+        const result = await bridge.settings.load();
+        if (!result.ok) {
+          // The defaults are already in state, so there is nothing to repair — but the user
+          // should know why the application does not look the way they left it.
+          dispatch({
+            type: 'notice/raised',
+            severity: 'warning',
+            message: 'Settings could not be loaded; using the defaults.',
+            ...(result.error.detail === undefined ? {} : { detail: result.error.detail }),
+          });
+          return;
+        }
+        dispatch({ type: 'settings/loaded', snapshot: result.value });
+        return;
+      }
+
+      case 'settings/save': {
+        // Fire-and-forget. The write is debounced in main, and the live value is already in
+        // state — waiting for the disk before showing a changed arrangement would feel broken.
+        bridge.settings.save(effect.patch);
+        return;
+      }
+
       case 'app/setUnsaved': {
         bridge.app.setUnsaved(effect.unsaved);
         return;
@@ -184,10 +208,10 @@ export const createEffectRunner = (bridge: AppBridge): EffectRunner => {
       }
 
       case 'terminal/create': {
+        // No shell argument: main reads the setting itself. See createTerminalRequestSchema.
         const result = await bridge.terminal.create({
           sessionId: effect.sessionId,
           paneId: effect.paneId,
-          shell: 'default',
         });
         if (!result.ok) {
           dispatch({

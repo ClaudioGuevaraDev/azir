@@ -15,6 +15,8 @@ import type {
   ReadFileRequest,
   ReadFileResponse,
   ResizeTerminalRequest,
+  SaveSettingsRequest,
+  SettingsSnapshot,
   WriteFileRequest,
   WriteFileResponse,
   TerminalDataEvent,
@@ -85,6 +87,22 @@ export interface AppBridge {
     status(request: GitStatusRequest): Promise<Result<GitStatusResponse>>;
     /** Requested only when a diff is actually on screen — performance rule 5. */
     diff(request: GitDiffRequest): Promise<Result<FileDiff>>;
+  };
+
+  readonly settings: {
+    /**
+     * The values main loaded and validated at startup, plus any field that fell back.
+     *
+     * Read once, when the renderer mounts. Settings are not re-read afterwards: the renderer holds
+     * the live values from that point on, and the file is only their startup source
+     * (docs/architecture.md, Settings).
+     */
+    load(): Promise<Result<SettingsSnapshot>>;
+    /**
+     * A patch of whole groups. Fire-and-forget: the write is debounced in main, and a UI that
+     * waited for the disk before showing a changed arrangement would feel broken.
+     */
+    save(request: SaveSettingsRequest): void;
   };
 
   readonly terminal: {

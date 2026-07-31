@@ -6,6 +6,7 @@ import { focusReducer, layoutReducer, overlayReducer } from './chrome';
 import { combineSlices, type Reduction } from './combine';
 import { noticesReducer } from './notices';
 import { repositoryReducer } from './repository';
+import { settingsReducer } from './settings';
 import { terminalsReducer } from './terminals';
 import { viewerReducer } from './viewer';
 import { workspaceReducer } from './workspace';
@@ -25,6 +26,7 @@ const combined = combineSlices<AppState>({
   layout: layoutReducer,
   focus: focusReducer,
   overlays: overlayReducer,
+  settings: settingsReducer,
   notices: noticesReducer,
 });
 

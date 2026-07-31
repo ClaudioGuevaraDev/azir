@@ -42,6 +42,17 @@ startEventPump({
       .map((tab) => tab.path),
 });
 
+/*
+ * Settings are requested before React mounts rather than from an effect inside a component.
+ *
+ * The round trip is still asynchronous, so this does not make them available to the first render;
+ * what it does is start the request at the earliest possible moment and keep it out of the
+ * component tree. In practice the values are in place well before they are visible, because the
+ * only thing that reads the arrangement is the workspace shell, and that does not exist until the
+ * user has opened a folder.
+ */
+store.dispatch({ type: 'settings/loadRequested' });
+
 createRoot(container).render(
   <StrictMode>
     <StoreProvider store={store}>

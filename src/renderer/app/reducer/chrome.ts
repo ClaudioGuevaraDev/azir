@@ -25,14 +25,27 @@ export const layoutReducer: SliceReducer<LayoutState> = (state, action): Reducti
       return changed({ ...state, width: action.width, height: action.height });
     }
 
+    case 'settings/loaded': {
+      /*
+       * The layout group of the settings file lands here rather than in the settings slice,
+       * because this is the slice that owns and consumes it. One action, two readers: they can
+       * never apply different halves of the same file.
+       */
+      const { layout } = action.snapshot.settings;
+      return changed({ ...state, settings: layout });
+    }
+
     case 'layout/arrangementChanged': {
       if (state.settings.arrangement === action.arrangement) {
         return idle(state);
       }
-      return changed({
-        ...state,
-        settings: { ...state.settings, arrangement: action.arrangement },
-      });
+      const settings = { ...state.settings, arrangement: action.arrangement };
+      // Persisted from here, where the change is decided. Emitting it from the component instead
+      // would mean a layout changed by any other route silently stops being remembered.
+      return withEffects(
+        { ...state, settings },
+        { type: 'settings/save', patch: { layout: settings } },
+      );
     }
 
     case 'layout/orderChanged': {
@@ -43,7 +56,11 @@ export const layoutReducer: SliceReducer<LayoutState> = (state, action): Reducti
       ) {
         return idle(state);
       }
-      return changed({ ...state, settings: { ...state.settings, order: action.order } });
+      const settings = { ...state.settings, order: action.order };
+      return withEffects(
+        { ...state, settings },
+        { type: 'settings/save', patch: { layout: settings } },
+      );
     }
 
     case 'workspace/closed': {

@@ -5,6 +5,8 @@ import type {
   FsChangeBatch,
   GitStatusResponse,
   ReadFileResponse,
+  SettingsSnapshot,
+  ShellKind,
   TerminalPaneId,
   WorkspaceInfo,
   WorkspaceSessionId,
@@ -277,6 +279,19 @@ export type Action =
    */
   | { readonly type: 'app/quitRequested'; readonly unsavedPaths: readonly string[] }
   | { readonly type: 'app/quitConfirmed' }
+  // ---- settings
+  /**
+   * Main's validated values, delivered once at startup.
+   *
+   * Consumed by two slices at once — `settings` and `layout` — which is the reason it is one
+   * action carrying the whole snapshot rather than one per group. A single action means the two
+   * can never end up applying different halves of the same file.
+   */
+  | { readonly type: 'settings/loadRequested' }
+  | { readonly type: 'settings/loaded'; readonly snapshot: SettingsSnapshot }
+  | { readonly type: 'settings/shellChanged'; readonly shell: ShellKind }
+  | { readonly type: 'settings/tabWidthChanged'; readonly tabWidth: number }
+  | { readonly type: 'settings/codeFontSizeChanged'; readonly codeFontSize: number }
   // ---- notices
   | {
       readonly type: 'notice/raised';

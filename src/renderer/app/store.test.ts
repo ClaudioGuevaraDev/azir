@@ -7,6 +7,7 @@ import { initialRepositoryState } from './repository';
 import { initialViewerState } from './viewer';
 import { createStore, type Dispatch } from './store';
 import type { AppState } from './state';
+import { initialSettingsState } from './settings';
 
 /**
  * The store's three guarantees, each of which the reducer alone cannot provide:
@@ -22,6 +23,7 @@ const stateWith = (nextId: number): AppState => ({
   layout: initialLayoutState,
   focus: initialFocusState,
   overlays: initialOverlayState,
+  settings: initialSettingsState,
   notices: { items: [], nextId },
 });
 

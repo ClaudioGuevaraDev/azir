@@ -1,11 +1,14 @@
 import { memo, useCallback } from 'react';
 import type { DiffTarget, WorkspaceSessionId } from '@shared/ipc/contracts';
+import { lineHeightFor } from '@shared/models/settings';
 import { diffTargetChanged, saveRequested, tabActivated, viewerModeChanged } from '../app/actions';
 import { useAppState, useDispatch } from '../app/react';
+import { indentFor } from '../app/settings';
 import {
   selectActiveTab,
   selectActiveTabGitStatus,
   selectFocusedPanel,
+  selectSettings,
   selectViewerTabs,
 } from '../app/state';
 import { countDiffChanges, isUntracked, synthesizeAddedDiff, type ViewerTab } from '../app/viewer';
@@ -151,6 +154,15 @@ const ViewerBody = ({
 }: ViewerBodyProps): React.JSX.Element => {
   const dispatch = useDispatch();
   const focused = useAppState(selectFocusedPanel) === 'viewer';
+  const settings = useAppState(selectSettings);
+  const indent = indentFor(settings.editor);
+  /*
+   * Derived from the font size rather than read from CSS. The virtualiser needs the row height in
+   * JavaScript to decide which rows exist at all, so the number and the stylesheet have to agree;
+   * `lineHeightFor` is the one place that decides, and ui/global.css takes the font size from the
+   * same setting.
+   */
+  const lineHeight = lineHeightFor(settings.appearance.codeFontSize);
 
   /*
    * An untracked file has no diff — `git diff` compares against the index, and the index
@@ -279,6 +291,8 @@ const ViewerBody = ({
           caret={tab.caret}
           focused={focused}
           initialTop={tab.codeTop}
+          indent={indent}
+          lineHeight={lineHeight}
           onScroll={onCodeScroll}
           onEdit={(operation) => dispatch({ type: 'viewer/edited', path: tab.path, operation })}
         />
@@ -295,7 +309,12 @@ const ViewerBody = ({
             </p>
           )}
           {effectiveDiff && (
-            <DiffView diff={effectiveDiff} initialTop={tab.diffTop} onScroll={onDiffScroll} />
+            <DiffView
+              diff={effectiveDiff}
+              initialTop={tab.diffTop}
+              lineHeight={lineHeight}
+              onScroll={onDiffScroll}
+            />
           )}
         </>
       )}

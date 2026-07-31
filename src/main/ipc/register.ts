@@ -9,6 +9,7 @@ import {
   pingRequestSchema,
   readFileRequestSchema,
   resizeTerminalRequestSchema,
+  saveSettingsRequestSchema,
   unsavedRequestSchema,
   workspaceCloseRequestSchema,
   workspaceOpenRequestSchema,
@@ -19,6 +20,7 @@ import {
   type PickFolderResponse,
   type PingResponse,
   type ReadFileResponse,
+  type SettingsSnapshot,
   type WorkspaceCloseResponse,
   type WriteFileResponse,
 } from '@shared/ipc/contracts';
@@ -150,16 +152,32 @@ export const registerIpcHandlers = (context: AppContext): void => {
     return context.git.status(session.value.root);
   });
 
+  // ---- settings
+
+  // `handle`, not `handleResult`: main loaded the file during bootstrap and already turned every
+  // failure into a per-field fallback, so by the time a renderer can ask there is nothing left to
+  // fail. What *is* reported is which fields fell back.
+  handle(CHANNELS.settingsLoad, noRequestSchema, (): SettingsSnapshot => {
+    return {
+      settings: context.settings.current(),
+      invalidFields: context.settings.invalidFields(),
+    };
+  });
+
+  listen(CHANNELS.settingsSave, saveSettingsRequestSchema, (request) => {
+    context.settings.merge(request);
+  });
+
   // ---- terminal
 
   handleResult(
     CHANNELS.terminalCreate,
     createTerminalRequestSchema,
     (request): Result<CreateTerminalResponse> => {
-      // The session gate comes first, and the cwd comes from the root main
-      // recorded — never from the renderer. A shell is the most powerful thing
-      // this application can start, so it must not be startable outside the
-      // workspace.
+      // The session gate comes first, and both the cwd and the shell come from main's own
+      // records — never from the renderer. A shell is the most powerful thing this application
+      // can start, so neither where it runs nor which executable it is may be chosen by the
+      // untrusted side.
       const session = context.sessions.require(request.sessionId);
       if (!session.ok) {
         return err(session.error.code, session.error.message);
@@ -169,7 +187,7 @@ export const registerIpcHandlers = (context: AppContext): void => {
         sessionId: request.sessionId,
         paneId: request.paneId,
         cwd: session.value.root,
-        shell: request.shell ?? 'default',
+        shell: context.settings.current().terminal.shell,
       });
     },
   );

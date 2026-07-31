@@ -15,12 +15,27 @@ export interface CodeViewProps {
    */
   readonly focused: boolean;
   readonly initialTop: number;
+  /**
+   * What Tab inserts. Always spaces.
+   *
+   * A literal tab character would render at whatever width the container's `tab-size` says, and
+   * the caret — which is positioned by counting graphemes — would then disagree with what is on
+   * screen by however many columns the tab expanded to. Spaces keep the two in step, and the
+   * viewer is not the place to be opinionated about a project's indentation style.
+   */
+  readonly indent: string;
+  /**
+   * Row height in pixels, derived from the code font size setting.
+   *
+   * A prop rather than a module constant because it is now a *setting*, and the virtualiser
+   * positions rows absolutely from it. A constant here and a value in CSS would be two places
+   * that must agree and eventually will not — with the symptom, rows drifting away from their
+   * gutter numbers as you scroll, looking nothing like a units bug.
+   */
+  readonly lineHeight: number;
   readonly onScroll: (top: number) => void;
   readonly onEdit: (operation: EditOperation) => void;
 }
-
-/** Must match --azir-code-line-height in tokens.css. */
-const LINE_HEIGHT = 18;
 
 /**
  * Keeps an empty line at full row height. An empty span collapses, and the gutter numbers
@@ -54,6 +69,8 @@ export const CodeView = ({
   caret,
   focused,
   initialTop,
+  indent,
+  lineHeight,
   onScroll,
   onEdit,
 }: CodeViewProps): React.JSX.Element => {
@@ -118,7 +135,7 @@ export const CodeView = ({
           case 'End':
             return { kind: 'move', to: 'lineEnd' };
           case 'Tab':
-            return { kind: 'insert', text: '  ' };
+            return { kind: 'insert', text: indent };
           default:
             // A printable key arrives as a single grapheme in `event.key`; every named key is
             // longer than one code point, which is what distinguishes them.
@@ -132,7 +149,7 @@ export const CodeView = ({
       event.preventDefault();
       onEdit(operation);
     },
-    [onEdit],
+    [onEdit, indent],
   );
 
   const renderRow = useCallback(
@@ -170,7 +187,7 @@ export const CodeView = ({
     >
       <VirtualList
         items={lines}
-        rowHeight={LINE_HEIGHT}
+        rowHeight={lineHeight}
         className="code"
         testId="code-view"
         initialTop={initialTop}

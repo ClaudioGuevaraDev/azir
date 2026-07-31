@@ -208,7 +208,7 @@
   overflow: auto;
   min-height: 0;
   font-family: var(--azir-font-mono);
-  font-size: var(--azir-text-xs);
+  font-size: var(--azir-code-font-size);
   line-height: var(--azir-code-line-height);
 }
 

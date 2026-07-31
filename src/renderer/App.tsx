@@ -2,6 +2,7 @@ import { useAppState } from './app/react';
 import { selectIsBusy, selectNotices, selectWorkspace } from './app/state';
 import type { TerminalTransport } from './terminal/controller';
 import type { TerminalRegistry } from './terminal/registry';
+import { AppearanceVars } from './ui/AppearanceVars';
 import { NoticeList } from './ui/NoticeList';
 import { WelcomeScreen } from './workspace/WelcomeScreen';
 import { WorkspaceShell } from './workspace/WorkspaceShell';
@@ -29,6 +30,7 @@ export const App = ({ registry, transport }: AppProps): React.JSX.Element => {
 
   return (
     <>
+      <AppearanceVars />
       {workspace.status === 'open' ? (
         <WorkspaceShell info={workspace.info} registry={registry} transport={transport} />
       ) : (

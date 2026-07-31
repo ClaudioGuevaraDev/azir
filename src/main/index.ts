@@ -68,9 +68,23 @@ const bootstrap = async (): Promise<void> => {
     // and it is invisible until the user goes looking.
     context.terminals.disposeAll();
     context.watcher.stopAll();
+    // Synchronous for the same reason as everything above it. A setting changed inside the
+    // debounce window and then quit is otherwise lost, which reads as the setting not working.
+    context.settings.flushSync();
   });
 
   await app.whenReady();
+
+  /*
+   * Loaded before the window exists, so `settings:load` is a cached read rather than a disk
+   * round trip on the renderer's critical path — docs/architecture.md: "Settings are loaded by
+   * the main process at startup."
+   *
+   * Awaited rather than fired off: the alternative is a window that renders with the defaults
+   * and then rearranges itself a moment later, which looks like a bug and moves the panel the
+   * user was about to click.
+   */
+  await context.settings.load();
 
   registerIpcHandlers(context);
 

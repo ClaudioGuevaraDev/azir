@@ -1,4 +1,10 @@
-import type { DiffTarget, Eol, TerminalPaneId, WorkspaceSessionId } from '@shared/ipc/contracts';
+import type {
+  DiffTarget,
+  Eol,
+  SaveSettingsRequest,
+  TerminalPaneId,
+  WorkspaceSessionId,
+} from '@shared/ipc/contracts';
 import type { RequestId } from './state';
 
 /**
@@ -51,6 +57,15 @@ export type Effect =
       readonly hadBom: boolean;
       readonly requestId: RequestId;
     }
+  | { readonly type: 'settings/load' }
+  /**
+   * A patch of whole groups, never the full document.
+   *
+   * Each slice can only see its own state, so no slice could assemble a complete `Settings` even
+   * if it wanted to. Main holds the persisted copy and merges — which also means a group Azir
+   * does not model yet survives a write instead of being erased by it.
+   */
+  | { readonly type: 'settings/save'; readonly patch: SaveSettingsRequest }
   /** Tells main whether anything is unsaved, so `before-quit` can decide synchronously. */
   | { readonly type: 'app/setUnsaved'; readonly unsaved: boolean }
   | { readonly type: 'app/confirmQuit' }
@@ -101,6 +116,18 @@ export const effectKey = (effect: Effect): string => {
       // Keyed by request id as well, so two saves of the same file in one burst are not
       // collapsed into one — the second may carry newer content. Main serialises them.
       return `${effect.type}|${effect.sessionId}|${effect.path}|${effect.requestId}`;
+    case 'settings/load':
+      return effect.type;
+    case 'settings/save':
+      /*
+       * Keyed by the whole patch, so only *identical* saves collapse.
+       *
+       * Keying by group name would be wrong in a way worth spelling out: `dedupeEffects` keeps
+       * the first occurrence of a key, so two changes to the same group in one burst would
+       * persist the earlier value and discard the one the user ended on. Letting both through
+       * costs nothing — main debounces the writes and the last one wins.
+       */
+      return `${effect.type}|${JSON.stringify(effect.patch)}`;
     case 'app/setUnsaved':
       return `${effect.type}|${String(effect.unsaved)}`;
     case 'app/confirmQuit':

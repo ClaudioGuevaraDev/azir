@@ -92,7 +92,13 @@
 
   --azir-panel-header-height: 30px;
   --azir-statusbar-height: 24px;
-  /* The virtual lists need this as a number too; see CodeView and DiffView. */
+  /*
+   * The code font size and its row height are *settings*, so these two are only the values
+   * used before settings arrive. Both are overwritten on the root element from renderer state
+   * — see ui/AppearanceVars.tsx — and the row height also reaches the virtual lists as a
+   * number, because they position rows absolutely rather than by flow.
+   */
+  --azir-code-font-size: 12px;
   --azir-code-line-height: 18px;
 
   --azir-transition-fast: 90ms ease-out;

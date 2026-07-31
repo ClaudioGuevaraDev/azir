@@ -1,4 +1,7 @@
+import path from 'node:path';
 import { CHANNELS } from '@shared/ipc/channels';
+import { app } from 'electron';
+import { createSettingsStore, type SettingsStore } from '../settings/settingsStore';
 import { createDialogService, type DialogService } from './dialogs';
 import { createQuitGuard, type QuitGuard } from './quitGuard';
 import { createRendererChannel, type RendererChannel } from './rendererChannel';
@@ -25,6 +28,7 @@ export interface AppContext {
   readonly watcher: WatcherService;
   readonly renderer: RendererChannel;
   readonly quitGuard: QuitGuard;
+  readonly settings: SettingsStore;
 }
 
 export type AppContextOverrides = Partial<AppContext>;
@@ -77,5 +81,18 @@ export const createAppContext = (overrides: AppContextOverrides = {}): AppContex
     watcher,
     renderer,
     quitGuard: overrides.quitGuard ?? createQuitGuard({ renderer }),
+    settings:
+      overrides.settings ??
+      createSettingsStore({
+        // `userData` rather than the workspace: settings are the user's preferences about Azir,
+        // not part of any project. Writing them into a repository would put them in someone's
+        // diff.
+        file: path.join(app.getPath('userData'), 'settings.json'),
+        onError: (detail) => {
+          // Logged only. A settings file that cannot be written is not a reason to interrupt the
+          // user's work, and the live values in the renderer are unaffected.
+          console.warn('[settings] write failed:', detail);
+        },
+      }),
   };
 };

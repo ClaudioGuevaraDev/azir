@@ -6,11 +6,10 @@ import { VirtualList } from '../ui/VirtualList';
 export interface DiffViewProps {
   readonly diff: FileDiff;
   readonly initialTop: number;
+  /** Row height in pixels, derived from the code font size setting. See CodeView. */
+  readonly lineHeight: number;
   readonly onScroll: (top: number) => void;
 }
-
-/** Must match --azir-code-line-height in tokens.css. */
-const LINE_HEIGHT = 18;
 
 const MARKS = { add: '+', remove: '-', context: ' ' } as const;
 
@@ -25,7 +24,12 @@ const MARKS = { add: '+', remove: '-', context: ' ' } as const;
  * Hunk headers are rows in the same list rather than sticky elements outside it, because
  * fixed-height windowing needs every row to be the same height.
  */
-export const DiffView = ({ diff, initialTop, onScroll }: DiffViewProps): React.JSX.Element => {
+export const DiffView = ({
+  diff,
+  initialTop,
+  lineHeight,
+  onScroll,
+}: DiffViewProps): React.JSX.Element => {
   const rows = projectDiffRows(diff);
 
   const renderRow = useCallback(
@@ -72,7 +76,7 @@ export const DiffView = ({ diff, initialTop, onScroll }: DiffViewProps): React.J
   return (
     <VirtualList
       items={rows}
-      rowHeight={LINE_HEIGHT}
+      rowHeight={lineHeight}
       className="diff"
       testId="diff-view"
       initialTop={initialTop}
