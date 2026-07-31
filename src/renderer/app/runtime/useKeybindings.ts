@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { Panel } from '@shared/models/layout';
-import type { Action } from '../actions';
+import { saveRequested, type Action } from '../actions';
 import { matchBinding } from './keybindings';
 import type { Dispatch } from '../store';
 
@@ -12,6 +12,9 @@ export interface KeybindingOptions {
   readonly overlayOpen: () => boolean;
   readonly panelInSlot: (slot: number) => Panel | undefined;
   readonly activePaneId: () => string | null;
+  readonly focusedPanel: () => Panel;
+  /** The active viewer tab's path, for the focus-scoped save shortcut. */
+  readonly activeTabPath: () => string | null;
 }
 
 /**
@@ -26,7 +29,15 @@ export interface KeybindingOptions {
  * stop the browser's own Ctrl+key behaviour — would break every keystroke the terminal needs.
  */
 export const useKeybindings = (options: KeybindingOptions): void => {
-  const { dispatch, sessionId, overlayOpen, panelInSlot, activePaneId } = options;
+  const {
+    dispatch,
+    sessionId,
+    overlayOpen,
+    panelInSlot,
+    activePaneId,
+    focusedPanel,
+    activeTabPath,
+  } = options;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -39,6 +50,7 @@ export const useKeybindings = (options: KeybindingOptions): void => {
           metaKey: event.metaKey,
         },
         overlayOpen(),
+        focusedPanel(),
       );
 
       if (!command) {
@@ -53,6 +65,11 @@ export const useKeybindings = (options: KeybindingOptions): void => {
           // The chord names a slot; the order setting says which panel that is.
           const panel = panelInSlot(command.slot);
           action = panel === undefined ? null : { type: 'focus/changed', panel };
+          break;
+        }
+        case 'saveFile': {
+          const tabPath = activeTabPath();
+          action = session === null || tabPath === null ? null : saveRequested(session, tabPath);
           break;
         }
         case 'openWorkspace':
@@ -97,5 +114,5 @@ export const useKeybindings = (options: KeybindingOptions): void => {
     return () => {
       window.removeEventListener('keydown', onKeyDown, { capture: true });
     };
-  }, [dispatch, sessionId, overlayOpen, panelInSlot, activePaneId]);
+  }, [dispatch, sessionId, overlayOpen, panelInSlot, activePaneId, focusedPanel, activeTabPath]);
 };

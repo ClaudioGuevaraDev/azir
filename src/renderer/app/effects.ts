@@ -1,4 +1,4 @@
-import type { DiffTarget, TerminalPaneId, WorkspaceSessionId } from '@shared/ipc/contracts';
+import type { DiffTarget, Eol, TerminalPaneId, WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { RequestId } from './state';
 
 /**
@@ -43,6 +43,18 @@ export type Effect =
       readonly requestId: RequestId;
     }
   | {
+      readonly type: 'viewer/writeFile';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly content: string;
+      readonly eol: Eol;
+      readonly hadBom: boolean;
+      readonly requestId: RequestId;
+    }
+  /** Tells main whether anything is unsaved, so `before-quit` can decide synchronously. */
+  | { readonly type: 'app/setUnsaved'; readonly unsaved: boolean }
+  | { readonly type: 'app/confirmQuit' }
+  | {
       readonly type: 'terminal/create';
       readonly sessionId: WorkspaceSessionId;
       readonly paneId: TerminalPaneId;
@@ -85,6 +97,14 @@ export const effectKey = (effect: Effect): string => {
       // The target is part of the key: the staged and worktree diffs of the same file
       // are different content, and collapsing them would show one for the other.
       return `${effect.type}|${effect.sessionId}|${effect.target}|${effect.path}`;
+    case 'viewer/writeFile':
+      // Keyed by request id as well, so two saves of the same file in one burst are not
+      // collapsed into one — the second may carry newer content. Main serialises them.
+      return `${effect.type}|${effect.sessionId}|${effect.path}|${effect.requestId}`;
+    case 'app/setUnsaved':
+      return `${effect.type}|${String(effect.unsaved)}`;
+    case 'app/confirmQuit':
+      return effect.type;
     case 'terminal/create':
     case 'terminal/kill':
       return `${effect.type}|${effect.sessionId}|${effect.paneId}`;

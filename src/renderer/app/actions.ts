@@ -12,6 +12,7 @@ import type {
 import type { AppError } from '@shared/ipc/result';
 import type { Arrangement, Panel } from '@shared/models/layout';
 import type { Overlay } from './chrome';
+import type { EditOperation } from './document';
 import type { RepositoryView } from './repository';
 import { nextRequestId } from './runtime/requestIds';
 import type { RequestId, Severity } from './state';
@@ -176,6 +177,50 @@ export type Action =
       readonly requestId: RequestId;
     }
   | {
+      readonly type: 'viewer/edited';
+      readonly path: string;
+      readonly operation: EditOperation;
+    }
+  | {
+      readonly type: 'viewer/saveRequested';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'viewer/saved';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'viewer/saveFailed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+      readonly error: AppError;
+    }
+  /**
+   * Asks to close a tab.
+   *
+   * Carries `dirty` because two slices react to it independently and neither may read the
+   * other: the viewer closes a clean tab, and the overlay raises a confirmation for a dirty
+   * one. The component already renders the flag, so putting it on the action costs nothing and
+   * keeps both readers looking at the same fact.
+   */
+  | {
+      readonly type: 'viewer/closeRequested';
+      readonly path: string;
+      readonly dirty: boolean;
+    }
+  /** Reloads a tab whose file moved while it held unsaved edits, discarding them. */
+  | {
+      readonly type: 'viewer/reloadRequested';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+    }
+  | {
       readonly type: 'viewer/scrolled';
       readonly path: string;
       readonly mode: ViewerMode;
@@ -224,6 +269,14 @@ export type Action =
   | { readonly type: 'focus/changed'; readonly panel: Panel }
   | { readonly type: 'overlay/opened'; readonly overlay: Overlay }
   | { readonly type: 'overlay/closed' }
+  /**
+   * Main is asking whether it may quit with unsaved work.
+   *
+   * The paths are attached by the event pump, which reads them from the store — the overlay
+   * slice cannot see the viewer slice, and the reducer cannot go looking.
+   */
+  | { readonly type: 'app/quitRequested'; readonly unsavedPaths: readonly string[] }
+  | { readonly type: 'app/quitConfirmed' }
   // ---- notices
   | {
       readonly type: 'notice/raised';
@@ -293,6 +346,20 @@ export const viewerModeChanged = (
   sessionId,
   path,
   mode,
+  requestId: nextRequestId(),
+});
+
+export const saveRequested = (sessionId: WorkspaceSessionId, path: string): Action => ({
+  type: 'viewer/saveRequested',
+  sessionId,
+  path,
+  requestId: nextRequestId(),
+});
+
+export const reloadRequested = (sessionId: WorkspaceSessionId, path: string): Action => ({
+  type: 'viewer/reloadRequested',
+  sessionId,
+  path,
   requestId: nextRequestId(),
 });
 

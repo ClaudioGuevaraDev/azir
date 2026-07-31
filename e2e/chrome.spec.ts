@@ -2,8 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { _electron as electron, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
+import { launchAzir, expectPrompt } from './support';
 
 /**
  * Layout, focus, overlays and the reserved shortcut set, in a real window.
@@ -45,7 +46,7 @@ const openWorkspace = async (directory: string): Promise<Page> => {
 };
 
 test.beforeEach(async () => {
-  app = await electron.launch({ args: ['.'] });
+  app = await launchAzir();
   await resize(1400, 900);
 });
 
@@ -255,7 +256,7 @@ test('the shortcut router does not steal keys from the shell', async () => {
    */
   const window = await openWorkspace(makeRepo());
   const pane = window.getByTestId('terminal-pane-p1');
-  await expect(pane).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
 
   await pane.click();
   // Waiting for focus to land is not ceremony: clicking a panel now dispatches

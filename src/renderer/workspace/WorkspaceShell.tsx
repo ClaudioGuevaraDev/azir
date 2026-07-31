@@ -51,6 +51,8 @@ export const WorkspaceShell = ({
       [store],
     ),
     activePaneId: useCallback(() => store.getState().terminals.activePaneId, [store]),
+    focusedPanel: useCallback(() => store.getState().focus.panel, [store]),
+    activeTabPath: useCallback(() => store.getState().viewer.activePath, [store]),
   });
 
   const renderPanel = useCallback(

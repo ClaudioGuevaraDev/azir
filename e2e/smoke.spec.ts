@@ -1,5 +1,6 @@
-import { _electron as electron, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { ElectronApplication } from '@playwright/test';
+import { launchAzir } from './support';
 
 /**
  * The acceptance tests: a real Electron process, a real window, real IPC.
@@ -13,7 +14,7 @@ import type { ElectronApplication } from '@playwright/test';
 let app: ElectronApplication;
 
 test.beforeEach(async () => {
-  app = await electron.launch({ args: ['.'] });
+  app = await launchAzir();
 });
 
 test.afterEach(async () => {

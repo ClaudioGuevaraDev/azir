@@ -146,6 +146,43 @@ export const createEffectRunner = (bridge: AppBridge): EffectRunner => {
         return;
       }
 
+      case 'viewer/writeFile': {
+        const result = await bridge.files.write({
+          sessionId: effect.sessionId,
+          path: effect.path,
+          content: effect.content,
+          eol: effect.eol,
+          hadBom: effect.hadBom,
+        });
+        if (!result.ok) {
+          dispatch({
+            type: 'viewer/saveFailed',
+            sessionId: effect.sessionId,
+            path: effect.path,
+            requestId: effect.requestId,
+            error: result.error,
+          });
+          return;
+        }
+        dispatch({
+          type: 'viewer/saved',
+          sessionId: effect.sessionId,
+          path: effect.path,
+          requestId: effect.requestId,
+        });
+        return;
+      }
+
+      case 'app/setUnsaved': {
+        bridge.app.setUnsaved(effect.unsaved);
+        return;
+      }
+
+      case 'app/confirmQuit': {
+        bridge.app.confirmQuit();
+        return;
+      }
+
       case 'terminal/create': {
         const result = await bridge.terminal.create({
           sessionId: effect.sessionId,

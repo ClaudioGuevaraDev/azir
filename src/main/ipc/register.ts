@@ -9,8 +9,10 @@ import {
   pingRequestSchema,
   readFileRequestSchema,
   resizeTerminalRequestSchema,
+  unsavedRequestSchema,
   workspaceCloseRequestSchema,
   workspaceOpenRequestSchema,
+  writeFileRequestSchema,
   writeTerminalRequestSchema,
   type CreateTerminalResponse,
   type ListDirectoryResponse,
@@ -18,6 +20,7 @@ import {
   type PingResponse,
   type ReadFileResponse,
   type WorkspaceCloseResponse,
+  type WriteFileResponse,
 } from '@shared/ipc/contracts';
 import { err, ok, type Result } from '@shared/ipc/result';
 import { ipcMain } from 'electron';
@@ -105,6 +108,22 @@ export const registerIpcHandlers = (context: AppContext): void => {
     },
   );
 
+  handleResult(
+    CHANNELS.filesWrite,
+    writeFileRequestSchema,
+    async (request): Promise<Result<WriteFileResponse>> => {
+      const absolute = context.sessions.resolve(request.sessionId, request.path);
+      if (!absolute.ok) {
+        return err(absolute.error.code, absolute.error.message);
+      }
+      return context.files.writeFile(absolute.value, request.path, {
+        content: request.content,
+        eol: request.eol,
+        hadBom: request.hadBom,
+      });
+    },
+  );
+
   // ---- git
 
   handleResult(CHANNELS.gitDiff, gitDiffRequestSchema, async (request) => {
@@ -167,6 +186,18 @@ export const registerIpcHandlers = (context: AppContext): void => {
 
   listen(CHANNELS.terminalKill, killTerminalRequestSchema, (request) => {
     context.terminals.kill(request.sessionId, request.paneId);
+  });
+
+  // ---- quit guard
+  //
+  // Pushed rather than asked for: `before-quit` cannot await, and preventing the quit to go
+  // and fetch an answer is the dance that does not work. See app/quitGuard.ts.
+  listen(CHANNELS.appSetUnsaved, unsavedRequestSchema, (request) => {
+    context.quitGuard.setUnsaved(request.unsaved);
+  });
+
+  listen(CHANNELS.appConfirmQuit, noRequestSchema, () => {
+    context.quitGuard.confirm();
   });
 };
 

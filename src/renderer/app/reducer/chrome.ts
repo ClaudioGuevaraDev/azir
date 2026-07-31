@@ -6,7 +6,7 @@ import {
   type LayoutState,
   type OverlayState,
 } from '../chrome';
-import { changed, idle, type Reduction, type SliceReducer } from './combine';
+import { changed, idle, withEffects, type Reduction, type SliceReducer } from './combine';
 
 /**
  * Geometry.
@@ -83,6 +83,11 @@ export const overlayReducer: SliceReducer<OverlayState> = (
   action,
 ): Reduction<OverlayState> => {
   switch (action.type) {
+    case 'app/quitConfirmed':
+      // The effect is emitted here rather than by the viewer, because this slice owns the
+      // confirmation the user just answered.
+      return withEffects(initialOverlayState, { type: 'app/confirmQuit' });
+
     case 'overlay/opened': {
       // Opening an overlay while one is already up replaces it rather than stacking. A
       // stack would mean two overlays with a claim on the keyboard.
@@ -92,6 +97,33 @@ export const overlayReducer: SliceReducer<OverlayState> = (
       return changed({ current: action.overlay });
     }
 
+    case 'viewer/closeRequested':
+      // Only a dirty tab needs asking about. The viewer slice reads the same flag and closes a
+      // clean one outright.
+      if (!action.dirty) {
+        return idle(state);
+      }
+      return changed({
+        current: { type: 'confirm', intent: { kind: 'discardChanges', path: action.path } },
+      });
+
+    case 'viewer/reloadRequested':
+      // The confirmation has been answered.
+      return state.current === null ? idle(state) : changed(initialOverlayState);
+
+    case 'app/quitRequested': {
+      if (action.unsavedPaths.length === 0) {
+        return idle(state);
+      }
+      return changed({
+        current: {
+          type: 'confirm',
+          intent: { kind: 'quitWithUnsaved', paths: action.unsavedPaths },
+        },
+      });
+    }
+
+    case 'viewer/closed':
     case 'overlay/closed':
       return state.current === null ? idle(state) : changed(initialOverlayState);
 

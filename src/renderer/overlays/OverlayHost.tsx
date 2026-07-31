@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { ARRANGEMENTS, PANELS, type Arrangement, type Panel } from '@shared/models/layout';
-import type { Overlay } from '../app/chrome';
+import { reloadRequested } from '../app/actions';
+import type { ConfirmIntent, Overlay } from '../app/chrome';
 import { useAppState, useDispatch } from '../app/react';
 import { documentedBindings } from '../app/runtime/keybindings';
-import { selectLayout, selectOverlay } from '../app/state';
+import { selectLayout, selectOverlay, selectSessionId } from '../app/state';
 import './OverlayHost.css';
 
 const TITLES: Record<Overlay['type'], string> = {
   help: 'Keyboard shortcuts',
   settings: 'Settings',
+  confirm: 'Unsaved changes',
 };
 
 /**
@@ -45,8 +47,13 @@ export const OverlayHost = (): React.JSX.Element | null => {
       className="overlay"
       data-testid="overlay"
       data-overlay={overlay.type}
-      // Clicking outside dismisses, which is what a modal that owns no data should do.
-      onClick={() => dispatch({ type: 'overlay/closed' })}
+      // Clicking outside dismisses — except for a confirmation, where dismissing by accident
+      // would be indistinguishable from answering it.
+      onClick={() => {
+        if (overlay.type !== 'confirm') {
+          dispatch({ type: 'overlay/closed' });
+        }
+      }}
     >
       <div
         className="overlay__panel"
@@ -70,7 +77,9 @@ export const OverlayHost = (): React.JSX.Element | null => {
           </button>
         </header>
 
-        {overlay.type === 'help' ? <HelpBody /> : <SettingsBody />}
+        {overlay.type === 'help' && <HelpBody />}
+        {overlay.type === 'settings' && <SettingsBody />}
+        {overlay.type === 'confirm' && <ConfirmBody intent={overlay.intent} />}
       </div>
     </div>
   );
@@ -92,6 +101,73 @@ const HelpBody = (): React.JSX.Element => (
     </p>
   </dl>
 );
+
+/**
+ * The confirmation.
+ *
+ * The destructive choice is never the default and never the primary button: this dialog only
+ * ever appears when the alternative is losing work the user did not save. It also names the
+ * files, because "you have unsaved changes" with no list is not enough information to answer.
+ */
+const ConfirmBody = ({ intent }: { readonly intent: ConfirmIntent }): React.JSX.Element => {
+  const dispatch = useDispatch();
+  const sessionId = useAppState(selectSessionId);
+
+  const body = ((): { message: string; confirmLabel: string; onConfirm: () => void } => {
+    switch (intent.kind) {
+      case 'discardChanges':
+        return {
+          message: `${intent.path} has unsaved changes.`,
+          confirmLabel: 'Discard and close',
+          onConfirm: () => dispatch({ type: 'viewer/closed', path: intent.path }),
+        };
+      case 'reloadFromDisk':
+        return {
+          message: `${intent.path} changed on disk and has unsaved changes here.`,
+          confirmLabel: 'Discard mine and reload',
+          onConfirm: () => {
+            if (sessionId !== null) {
+              dispatch(reloadRequested(sessionId, intent.path));
+            }
+          },
+        };
+      case 'quitWithUnsaved':
+        return {
+          message:
+            intent.paths.length === 1
+              ? `${intent.paths[0]} has unsaved changes.`
+              : `${intent.paths.length} files have unsaved changes:\n${intent.paths.join('\n')}`,
+          confirmLabel: 'Quit without saving',
+          onConfirm: () => dispatch({ type: 'app/quitConfirmed' }),
+        };
+    }
+  })();
+
+  return (
+    <div className="overlay__confirm" data-testid="confirm-body">
+      <p className="overlay__confirm-message">{body.message}</p>
+      <div className="overlay__confirm-actions">
+        <button
+          type="button"
+          className="overlay__choice"
+          data-active="true"
+          data-testid="confirm-cancel"
+          onClick={() => dispatch({ type: 'overlay/closed' })}
+        >
+          Keep editing
+        </button>
+        <button
+          type="button"
+          className="overlay__choice overlay__choice--danger"
+          data-testid="confirm-accept"
+          onClick={body.onConfirm}
+        >
+          {body.confirmLabel}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const ARRANGEMENT_LABELS: Record<Arrangement, string> = {
   columns: 'Three columns',

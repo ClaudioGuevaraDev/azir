@@ -1,6 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { _electron as electron, expect, test } from '@playwright/test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { expect, test } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
+import { launchAzir, expectPrompt } from './support';
 
 /**
  * The terminal against a real shell.
@@ -11,6 +15,22 @@ import type { ElectronApplication, Page } from '@playwright/test';
  */
 
 let app: ElectronApplication;
+const scratchDirs: string[] = [];
+
+/**
+ * A small throwaway workspace.
+ *
+ * Not the azir repository, even though these tests do not read the tree: opening a workspace starts
+ * a filesystem watcher, and the live repo contains `release/` — an unpacked Electron distribution —
+ * plus `test-results/`, which Playwright writes to while the suite runs. Nine such watchers per run
+ * was enough churn to take the worker down.
+ */
+const makeWorkspace = (): string => {
+  const root = mkdtempSync(path.join(tmpdir(), 'azir-term-'));
+  scratchDirs.push(root);
+  writeFileSync(path.join(root, 'readme.txt'), 'hello\n');
+  return root;
+};
 
 const stubFolderPicker = async (directory: string): Promise<void> => {
   await app.evaluate(async ({ dialog }, chosen) => {
@@ -21,7 +41,7 @@ const stubFolderPicker = async (directory: string): Promise<void> => {
 const openWorkspace = async (): Promise<Page> => {
   const window = await app.firstWindow();
   await window.getByTestId('welcome').waitFor();
-  await stubFolderPicker(process.cwd());
+  await stubFolderPicker(makeWorkspace());
   await window.getByTestId('open-workspace').click();
   await expect(window.getByTestId('workspace-shell')).toBeVisible();
   return window;
@@ -50,11 +70,22 @@ const shellPids = (): Set<string> => {
 };
 
 test.beforeEach(async () => {
-  app = await electron.launch({ args: ['.'] });
+  app = await launchAzir();
 });
 
 test.afterEach(async () => {
-  await app.close();
+  try {
+    await app.close();
+  } catch {
+    // Already gone; one test closes the app itself.
+  }
+  for (const dir of scratchDirs.splice(0)) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // The autostarted shell may still hold it; the OS cleans temp.
+    }
+  }
 });
 
 test('a workspace autostarts one terminal', async () => {
@@ -74,7 +105,7 @@ test('the shell echoes a command typed into the pane', async () => {
 
   // Wait for the prompt, so the command is not typed into a shell that is still
   // starting up and would swallow it.
-  await expect(pane).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
 
   await pane.click();
   await window.keyboard.type('echo AZIR_E2E_OK');
@@ -88,7 +119,7 @@ test('the shell echoes a command typed into the pane', async () => {
 test('a second pane runs concurrently and hidden panes stay alive', async () => {
   const window = await openWorkspace();
   const first = window.getByTestId('terminal-pane-p1');
-  await expect(first).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
 
   await first.click();
   await window.keyboard.type('echo FIRST_PANE');
@@ -98,7 +129,7 @@ test('a second pane runs concurrently and hidden panes stay alive', async () => 
   await window.getByTestId('terminal-add').click();
   const second = window.getByTestId('terminal-pane-p2');
   await expect(second).toBeVisible();
-  await expect(second).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p2');
 
   // The first pane is now hidden, not unmounted — its scrollback must survive.
   await expect(first).toBeHidden();
@@ -110,10 +141,10 @@ test('a second pane runs concurrently and hidden panes stay alive', async () => 
 
 test('closing a pane removes it and leaves the other running', async () => {
   const window = await openWorkspace();
-  await expect(window.getByTestId('terminal-pane-p1')).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
 
   await window.getByTestId('terminal-add').click();
-  await expect(window.getByTestId('terminal-pane-p2')).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p2');
 
   await window.getByTestId('terminal-close-p2').click();
 
@@ -124,7 +155,7 @@ test('closing a pane removes it and leaves the other running', async () => {
 
 test('closing the workspace tears the terminals down', async () => {
   const window = await openWorkspace();
-  await expect(window.getByTestId('terminal-pane-p1')).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
 
   await window.getByTestId('close-workspace').click();
 
@@ -135,7 +166,7 @@ test('closing the workspace tears the terminals down', async () => {
 test('a noisy command does not freeze the UI', async () => {
   const window = await openWorkspace();
   const pane = window.getByTestId('terminal-pane-p1');
-  await expect(pane).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
 
   await pane.click();
   // Thousands of lines through the output pump and the side channel.
@@ -157,7 +188,7 @@ test('Ctrl+C reaches the shell instead of being swallowed as an app shortcut', a
   // supervising anything long-running, which is the whole point of the tool.
   const window = await openWorkspace();
   const pane = window.getByTestId('terminal-pane-p1');
-  await expect(pane).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
 
   await pane.click();
   await window.keyboard.type('Start-Sleep -Seconds 120');
@@ -180,7 +211,7 @@ test('Ctrl+C reaches the shell instead of being swallowed as an app shortcut', a
 test('arrow-up recalls the previous command from shell history', async () => {
   const window = await openWorkspace();
   const pane = window.getByTestId('terminal-pane-p1');
-  await expect(pane).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
 
   await pane.click();
   await window.keyboard.type('echo HISTORY_MARKER');
@@ -209,9 +240,9 @@ test('quitting leaves no orphan shells', async () => {
   const before = shellPids();
 
   const window = await openWorkspace();
-  await expect(window.getByTestId('terminal-pane-p1')).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p1');
   await window.getByTestId('terminal-add').click();
-  await expect(window.getByTestId('terminal-pane-p2')).toContainText('>', { timeout: 20_000 });
+  await expectPrompt(window, 'p2');
 
   await app.close();
 
@@ -222,5 +253,5 @@ test('quitting leaves no orphan shells', async () => {
     .toBe(0);
 
   // Re-opened so the shared afterEach has something to close.
-  app = await electron.launch({ args: ['.'] });
+  app = await launchAzir();
 });

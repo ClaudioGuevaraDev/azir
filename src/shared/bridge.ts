@@ -15,6 +15,8 @@ import type {
   ReadFileRequest,
   ReadFileResponse,
   ResizeTerminalRequest,
+  WriteFileRequest,
+  WriteFileResponse,
   TerminalDataEvent,
   TerminalExitEvent,
   WorkspaceCloseRequest,
@@ -42,6 +44,18 @@ export type Unsubscribe = () => void;
 export interface AppBridge {
   readonly app: {
     ping(request: PingRequest): Promise<Result<PingResponse>>;
+    /**
+     * Keeps main informed about unsaved work, so `before-quit` can decide synchronously.
+     *
+     * Pushed rather than asked for: an Electron quit handler cannot await an answer, and
+     * preventing the quit to go and fetch one is the dance that does not work — Electron does
+     * not restart a cancelled quit sequence from inside it.
+     */
+    setUnsaved(unsaved: boolean): void;
+    /** The user chose to quit anyway. */
+    confirmQuit(): void;
+    /** Main asking the renderer to confirm a quit with unsaved work. */
+    onQuitRequested(listener: () => void): Unsubscribe;
   };
 
   readonly workspace: {
@@ -55,6 +69,7 @@ export interface AppBridge {
     listDirectory(request: ListDirectoryRequest): Promise<Result<ListDirectoryResponse>>;
     /** Refuses a file that is too large or binary, as a `Result` rather than a throw. */
     read(request: ReadFileRequest): Promise<Result<ReadFileResponse>>;
+    write(request: WriteFileRequest): Promise<Result<WriteFileResponse>>;
   };
 
   readonly fs: {

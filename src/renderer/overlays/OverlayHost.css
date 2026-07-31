@@ -135,6 +135,33 @@ kbd {
   padding: var(--azir-space-1) 0;
 }
 
+.overlay__confirm {
+  padding: var(--azir-space-4);
+}
+
+.overlay__confirm-message {
+  margin: 0 0 var(--azir-space-4);
+  color: var(--azir-text);
+  font-size: var(--azir-text-sm);
+  white-space: pre-line;
+}
+
+.overlay__confirm-actions {
+  display: flex;
+  gap: var(--azir-space-3);
+}
+
+/* The destructive choice reads as destructive and is never the visual default. */
+.overlay__choice--danger {
+  border-color: var(--azir-danger);
+  color: var(--azir-danger);
+}
+
+.overlay__choice--danger:hover {
+  background: color-mix(in srgb, var(--azir-danger) 18%, transparent);
+  color: var(--azir-text);
+}
+
 .overlay__slot-label {
   flex: none;
   width: 56px;

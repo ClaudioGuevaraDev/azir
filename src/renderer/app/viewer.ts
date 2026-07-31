@@ -6,6 +6,7 @@ import type {
   ReadFileResponse,
 } from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
+import { originCaret, type Caret } from './document';
 import type { RequestId } from './state';
 
 /**
@@ -62,9 +63,27 @@ export interface ViewerTab {
    * batch would read files nobody is looking at — during a checkout, all of them.
    */
   readonly stale: boolean;
+  /** Edited and not yet written. */
+  readonly dirty: boolean;
+  /**
+   * The file moved on disk while this tab held unsaved edits.
+   *
+   * Distinct from `stale`, and the distinction is the point: a stale tab is reloaded when it
+   * next becomes visible, but a dirty one must **never** be silently reloaded — that would
+   * throw away the user's work without asking. The spec is explicit about it.
+   */
+  readonly changedOnDisk: boolean;
+  readonly caret: Caret;
+  readonly save: SaveState;
   readonly contentRequestId: RequestId | null;
   readonly diffRequestId: RequestId | null;
+  readonly saveRequestId: RequestId | null;
 }
+
+export type SaveState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'saving' }
+  | { readonly status: 'failed'; readonly error: AppError };
 
 export interface ViewerState {
   readonly tabs: readonly ViewerTab[];
@@ -85,9 +104,17 @@ export const newTab = (path: string, requestId: RequestId): ViewerTab => ({
   codeTop: 0,
   diffTop: 0,
   stale: false,
+  dirty: false,
+  changedOnDisk: false,
+  caret: originCaret,
+  save: { status: 'idle' },
   contentRequestId: requestId,
   diffRequestId: null,
+  saveRequestId: null,
 });
+
+/** True when any open tab holds unsaved edits. Drives the quit guard. */
+export const hasUnsavedWork = (state: ViewerState): boolean => state.tabs.some((tab) => tab.dirty);
 
 export const toDocument = (response: ReadFileResponse): Document => ({
   // `split` on a trailing newline yields a final empty string, which is correct: a file

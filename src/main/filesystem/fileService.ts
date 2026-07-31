@@ -1,8 +1,14 @@
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isIgnoredPath } from '@shared/constants/ignore';
-import type { DirectoryEntry, Eol, ReadFileResponse } from '@shared/ipc/contracts';
+import type {
+  DirectoryEntry,
+  Eol,
+  ReadFileResponse,
+  WriteFileResponse,
+} from '@shared/ipc/contracts';
 import { describeError, err, ok, type Result } from '@shared/ipc/result';
+import { createKeyedSerialQueue } from './keyedSerialQueue';
 
 /**
  * Filesystem reads for the repository panel.
@@ -31,6 +37,12 @@ export interface FileService {
   listDirectory(absolutePath: string, relativePosix: string): Promise<Result<DirectoryEntry[]>>;
   /** Reads one file as text, refusing anything the viewer cannot usefully show. */
   readFile(absolutePath: string, relativePosix: string): Promise<Result<ReadFileResponse>>;
+  /** Writes one file, serialised per path. See keyedSerialQueue.ts. */
+  writeFile(
+    absolutePath: string,
+    relativePosix: string,
+    request: { content: string; eol: Eol; hadBom: boolean },
+  ): Promise<Result<WriteFileResponse>>;
 }
 
 export interface RawEntry {
@@ -45,6 +57,7 @@ export interface FileServiceOptions {
   readonly readDirectory?: (absolutePath: string) => Promise<RawEntry[]>;
   readonly isDirectoryTarget?: (absolutePath: string) => Promise<boolean>;
   readonly readFileBytes?: (absolutePath: string) => Promise<Buffer>;
+  readonly writeFileBytes?: (absolutePath: string, bytes: Buffer) => Promise<void>;
   readonly statPath?: (absolutePath: string) => Promise<{ size: number; isFile: boolean }>;
   /** Files above this many bytes are refused rather than loaded. */
   readonly maxFileBytes?: number;
@@ -128,6 +141,7 @@ const classify = (error: unknown): ReturnType<typeof err> => {
   return err('internal', 'That folder could not be read.', detail);
 };
 
+/** Written as an escape on purpose: an invisible character in source is a trap. */
 const BOM = '﻿';
 
 /** LF, CRLF, or a file that contains both. */
@@ -155,6 +169,9 @@ export const createFileService = (options: FileServiceOptions = {}): FileService
   const readDirectory = options.readDirectory ?? defaultReadDirectory;
   const isDirectoryTarget = options.isDirectoryTarget ?? defaultIsDirectoryTarget;
   const readFileBytes = options.readFileBytes ?? ((target) => readFile(target));
+  const writeFileBytes = options.writeFileBytes ?? ((target, bytes) => writeFile(target, bytes));
+  // One queue for the whole service, keyed by absolute path.
+  const writes = createKeyedSerialQueue<Result<WriteFileResponse>>();
   const statPath =
     options.statPath ??
     (async (target) => {
@@ -164,6 +181,40 @@ export const createFileService = (options: FileServiceOptions = {}): FileService
   const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
 
   return {
+    writeFile(absolutePath, relativePosix, request) {
+      return writes.enqueue(absolutePath, async () => {
+        /*
+         * The line ending and byte-order mark are restored from what the read reported, not
+         * normalised. Silently rewriting a CRLF file with LF would turn a one-line edit into a
+         * whole-file diff, which for a tool whose purpose is reviewing changes is close to the
+         * worst possible behaviour.
+         */
+        const eol = request.eol === 'crlf' ? '\r\n' : '\n';
+        const body = request.content.split('\n').join(eol);
+        const text = request.hadBom ? `${BOM}${body}` : body;
+        const bytes = Buffer.from(text, 'utf8');
+
+        try {
+          await writeFileBytes(absolutePath, bytes);
+        } catch (error) {
+          const code = (error as { code?: string }).code;
+          if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
+            return err(
+              'permission-denied',
+              'That file could not be written.',
+              describeError(error),
+            );
+          }
+          if (code === 'ENOENT') {
+            return err('not-found', 'That file no longer exists.', describeError(error));
+          }
+          return err('internal', 'That file could not be written.', describeError(error));
+        }
+
+        return ok({ path: relativePosix, byteSize: bytes.byteLength });
+      });
+    },
+
     async readFile(absolutePath, relativePosix) {
       // Statted first so an oversized file is refused without ever being read into
       // memory — reading it and then rejecting would defeat the point of the guard.

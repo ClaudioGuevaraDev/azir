@@ -1,5 +1,6 @@
 import { CHANNELS } from '@shared/ipc/channels';
 import { createDialogService, type DialogService } from './dialogs';
+import { createQuitGuard, type QuitGuard } from './quitGuard';
 import { createRendererChannel, type RendererChannel } from './rendererChannel';
 import { createFileService, type FileService } from '../filesystem/fileService';
 import { createGitService, type GitService } from '../git/gitService';
@@ -23,6 +24,7 @@ export interface AppContext {
   readonly terminals: TerminalManager;
   readonly watcher: WatcherService;
   readonly renderer: RendererChannel;
+  readonly quitGuard: QuitGuard;
 }
 
 export type AppContextOverrides = Partial<AppContext>;
@@ -74,5 +76,6 @@ export const createAppContext = (overrides: AppContextOverrides = {}): AppContex
     terminals,
     watcher,
     renderer,
+    quitGuard: overrides.quitGuard ?? createQuitGuard({ renderer }),
   };
 };

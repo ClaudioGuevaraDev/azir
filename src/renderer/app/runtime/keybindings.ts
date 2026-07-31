@@ -30,6 +30,7 @@ export type Command =
    * allowed to know it — the same constraint the layout engine works under.
    */
   | { readonly kind: 'focusSlot'; readonly slot: number }
+  | { readonly kind: 'saveFile' }
   | { readonly kind: 'openWorkspace' }
   | { readonly kind: 'newTerminal' }
   | { readonly kind: 'closeTerminal' }
@@ -51,6 +52,16 @@ interface Chord {
   readonly alt?: boolean;
   /** Only matched while an overlay owns the keyboard. */
   readonly overlayOnly?: boolean;
+  /**
+   * Only matched while this panel has focus.
+   *
+   * The escape hatch for a chord the application needs but the terminal also uses. Ctrl+S is
+   * the case: it is the universally expected save shortcut, and it is also XOFF — with flow
+   * control enabled it stops the terminal's output. Reserving it globally would break that;
+   * scoping it to the viewer means the terminal keeps it whenever the terminal is where the
+   * user is typing.
+   */
+  readonly panel?: 'repository' | 'viewer' | 'terminal';
 }
 
 interface Entry extends Binding {
@@ -75,6 +86,12 @@ export const BINDINGS: readonly Entry[] = [
     label: 'Ctrl+3',
     description: 'Focus the third panel',
     command: { kind: 'focusSlot', slot: 2 },
+  },
+  {
+    chord: { code: 'KeyS', ctrl: true, panel: 'viewer' },
+    label: 'Ctrl+S',
+    description: 'Save the file — only while the viewer has focus, since Ctrl+S is XOFF',
+    command: { kind: 'saveFile' },
   },
   {
     chord: { code: 'KeyO', ctrl: true, shift: true },
@@ -131,7 +148,11 @@ export interface KeyChord {
  * and every other binding is suppressed *while* one is up, because the overlay owns the
  * keyboard.
  */
-export const matchBinding = (event: KeyChord, overlayOpen: boolean): Command | null => {
+export const matchBinding = (
+  event: KeyChord,
+  overlayOpen: boolean,
+  focusedPanel?: 'repository' | 'viewer' | 'terminal',
+): Command | null => {
   // Meta is the OS's on every platform Azir targets; claiming it would collide with window
   // management and, on macOS, with the standard menu accelerators.
   if (event.metaKey) {
@@ -145,6 +166,9 @@ export const matchBinding = (event: KeyChord, overlayOpen: boolean): Command | n
       continue;
     }
     if (chord.overlayOnly !== true && overlayOpen) {
+      continue;
+    }
+    if (chord.panel !== undefined && chord.panel !== focusedPanel) {
       continue;
     }
 

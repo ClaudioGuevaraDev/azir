@@ -63,6 +63,20 @@ export const WorkspaceLayout = ({ render }: WorkspaceLayoutProps): React.JSX.Ele
     [layout.width, layout.height, layout.settings, focused],
   );
 
+  /*
+   * Nothing is rendered until the stage has been measured.
+   *
+   * This is not cosmetic. On the first render the size is still zero, so the engine correctly
+   * degrades to a single 0×0 slot — and mounting a panel into that is destructive rather than
+   * merely ugly: xterm.js attaches to a zero-sized element, the shell's prompt is written into a
+   * degenerate grid, and the `fit()` that follows the first ResizeObserver callback reflows it
+   * away. The terminal ends up correctly sized and permanently blank.
+   *
+   * Measured against zero rather than a spinner, because the observer fires in the same frame and
+   * a placeholder would flash.
+   */
+  const measured = layout.width > 0 && layout.height > 0;
+
   return (
     <div
       className="stage"
@@ -70,7 +84,7 @@ export const WorkspaceLayout = ({ render }: WorkspaceLayoutProps): React.JSX.Ele
       data-testid="workspace-stage"
       data-degraded={computed.degraded}
     >
-      {computed.visibleSlots.map((slot) => {
+      {(measured ? computed.visibleSlots : []).map((slot) => {
         const panel = layout.settings.order[slot];
         const rect = computed.rects.get(slot);
         if (panel === undefined || rect === undefined) {

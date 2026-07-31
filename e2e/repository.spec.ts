@@ -1,18 +1,59 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { _electron as electron, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
+import { launchAzir } from './support';
 
 /**
  * The repository panel against a real filesystem.
  *
- * The unit tests cover ordering, ignoring and staleness with a fake `readdir`. What
- * they cannot cover is whether the session path sandbox, the lazy-loading round trip
- * and the virtualised list actually work together over IPC.
+ * The unit tests cover ordering, ignoring and staleness with a fake `readdir`. What they cannot
+ * cover is whether the session path sandbox, the lazy-loading round trip and the virtualised list
+ * actually work together over IPC.
+ *
+ * These tests used to open the azir repository itself, which was a mistake worth recording: a
+ * workspace starts a filesystem watcher, and the live repo contains `release/` — an unpacked
+ * Electron distribution — plus `test-results/`, which Playwright writes to continuously *while the
+ * suite runs*. Nine such workspaces across one run produced enough watcher churn to kill the
+ * worker, and the failures landed on whichever test happened to be in flight. A purpose-built
+ * fixture keeps the assertions and removes the coupling.
  */
 
 let app: ElectronApplication;
+const scratchDirs: string[] = [];
+
+/** A workspace shaped like a real project: nested source, a package file, ignored directories. */
+const makeFixture = (): string => {
+  const root = mkdtempSync(path.join(tmpdir(), 'azir-repo-'));
+  scratchDirs.push(root);
+
+  for (const dir of [
+    'src/main/ipc',
+    'src/main/terminal',
+    'src/shared/ipc',
+    'src/renderer/app',
+    'docs',
+    'e2e',
+    // Both must exist on disk, so their absence from the tree proves the filter works rather
+    // than proving the directories simply are not there.
+    'node_modules/some-package',
+    '.git/refs/heads',
+  ]) {
+    mkdirSync(path.join(root, dir), { recursive: true });
+  }
+
+  writeFileSync(path.join(root, 'package.json'), '{ "name": "fixture" }\n');
+  writeFileSync(path.join(root, 'README.md'), '# Fixture\n');
+  writeFileSync(path.join(root, 'src/main/index.ts'), 'export {};\n');
+  writeFileSync(path.join(root, 'src/main/ipc/register.ts'), 'export {};\n');
+  writeFileSync(path.join(root, 'src/shared/ipc/channels.ts'), 'export {};\n');
+  writeFileSync(path.join(root, 'docs/architecture.md'), '# Architecture\n');
+  writeFileSync(path.join(root, 'node_modules/some-package/index.js'), 'module.exports = {};\n');
+  writeFileSync(path.join(root, '.git/HEAD'), 'ref: refs/heads/main\n');
+
+  return root;
+};
 
 const stubFolderPicker = async (directory: string): Promise<void> => {
   await app.evaluate(async ({ dialog }, chosen) => {
@@ -30,7 +71,7 @@ const openWorkspace = async (directory: string): Promise<Page> => {
 };
 
 test.beforeEach(async () => {
-  app = await electron.launch({ args: ['.'] });
+  app = await launchAzir();
 });
 
 test.afterEach(async () => {
@@ -41,10 +82,17 @@ test.afterEach(async () => {
   } catch {
     // Already gone.
   }
+  for (const dir of scratchDirs.splice(0)) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // The autostarted shell may still hold it; the OS cleans temp.
+    }
+  }
 });
 
 test('the tree lists the workspace root with directories first', async () => {
-  const window = await openWorkspace(process.cwd());
+  const window = await openWorkspace(makeFixture());
 
   await expect(window.getByTestId('repository-panel')).toBeVisible();
   await expect(window.getByTestId('tree-row-src')).toBeVisible();
@@ -57,7 +105,7 @@ test('the tree lists the workspace root with directories first', async () => {
 });
 
 test('node_modules and .git are absent, because the scanner and watcher share one ignore list', async () => {
-  const window = await openWorkspace(process.cwd());
+  const window = await openWorkspace(makeFixture());
   await expect(window.getByTestId('tree-row-src')).toBeVisible();
 
   // Both exist on disk in this repo, so their absence is the filter working rather
@@ -67,7 +115,7 @@ test('node_modules and .git are absent, because the scanner and watcher share on
 });
 
 test('directories load lazily and only when expanded', async () => {
-  const window = await openWorkspace(process.cwd());
+  const window = await openWorkspace(makeFixture());
   await expect(window.getByTestId('tree-row-src')).toBeVisible();
 
   // Nothing below the root has been read yet.
@@ -85,7 +133,7 @@ test('directories load lazily and only when expanded', async () => {
 });
 
 test('collapsing hides children and reopening needs no reload', async () => {
-  const window = await openWorkspace(process.cwd());
+  const window = await openWorkspace(makeFixture());
   await window.getByTestId('tree-row-src').click();
   await expect(window.getByTestId('tree-row-src/main')).toBeVisible();
 
@@ -98,7 +146,7 @@ test('collapsing hides children and reopening needs no reload', async () => {
 });
 
 test('selection is keyed by path, so it survives a reload that rebuilds every row', async () => {
-  const window = await openWorkspace(process.cwd());
+  const window = await openWorkspace(makeFixture());
   const row = window.getByTestId('tree-row-package.json');
   await expect(row).toBeVisible();
 
@@ -117,7 +165,7 @@ test('selection is keyed by path, so it survives a reload that rebuilds every ro
 });
 
 test('clicking a directory both selects and expands it', async () => {
-  const window = await openWorkspace(process.cwd());
+  const window = await openWorkspace(makeFixture());
 
   await window.getByTestId('tree-row-src').click();
 
@@ -126,8 +174,8 @@ test('clicking a directory both selects and expands it', async () => {
 });
 
 test('a refresh picks up a file created outside the app', async () => {
-  // The watcher lands in M5; until then the manual refresh is the only path, and the
-  // spec requires it to keep working even when the watcher is unavailable.
+  // The watcher would also catch this; the point is that the manual refresh works on its own,
+  // because the spec requires it to keep working when the watcher is unavailable.
   //
   // The scratch workspace lives in the OS temp directory, not in the repo: the
   // autostarted shell runs with the workspace as its cwd, so Windows holds a handle
@@ -155,7 +203,7 @@ test('a refresh picks up a file created outside the app', async () => {
 });
 
 test('main refuses to list a path outside the workspace', async () => {
-  const window = await openWorkspace(process.cwd());
+  const window = await openWorkspace(makeFixture());
   await expect(window.getByTestId('tree-row-src')).toBeVisible();
 
   type ExposedBridge = {
@@ -188,7 +236,7 @@ test('main refuses to list a path outside the workspace', async () => {
 });
 
 test('a listing for a dead session is refused before the path is even considered', async () => {
-  const window = await openWorkspace(process.cwd());
+  const window = await openWorkspace(makeFixture());
   await expect(window.getByTestId('tree-row-src')).toBeVisible();
 
   type ExposedBridge = {

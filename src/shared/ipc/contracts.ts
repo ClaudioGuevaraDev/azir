@@ -170,6 +170,26 @@ export interface ReadFileResponse {
   readonly byteSize: number;
 }
 
+export const writeFileRequestSchema = z.object({
+  sessionId: z.number().int().nonnegative(),
+  path: relativePathSchema,
+  /** Always LF-joined; `eol` says what to write to disk. */
+  content: z.string().max(8 * 1024 * 1024),
+  eol: z.enum(['lf', 'crlf', 'mixed']),
+  hadBom: z.boolean(),
+});
+
+export type WriteFileRequest = z.infer<typeof writeFileRequestSchema>;
+
+export interface WriteFileResponse {
+  readonly path: string;
+  readonly byteSize: number;
+}
+
+export const unsavedRequestSchema = z.object({ unsaved: z.boolean() });
+
+export type UnsavedRequest = z.infer<typeof unsavedRequestSchema>;
+
 // ------------------------------------------------------------------ git:*
 
 /**

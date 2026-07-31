@@ -29,6 +29,12 @@ export const IGNORED_DIRECTORY_NAMES: ReadonlySet<string> = new Set([
   'out',
   'target',
   'coverage',
+  // Packaging and test output. `release` in particular holds an unpacked Electron
+  // distribution — hundreds of megabytes and thousands of files that no one reviews, and
+  // that a watcher has no business following.
+  'release',
+  'test-results',
+  'playwright-report',
   '.next',
   '.nuxt',
   '.svelte-kit',

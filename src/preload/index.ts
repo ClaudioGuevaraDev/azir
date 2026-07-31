@@ -34,6 +34,13 @@ const subscribe = <T>(channel: string, listener: (payload: T) => void): Unsubscr
 const bridge: AppBridge = {
   app: {
     ping: (request) => ipcRenderer.invoke(CHANNELS.appPing, request),
+    setUnsaved: (unsaved) => {
+      ipcRenderer.send(CHANNELS.appSetUnsaved, { unsaved });
+    },
+    confirmQuit: () => {
+      ipcRenderer.send(CHANNELS.appConfirmQuit, undefined);
+    },
+    onQuitRequested: (listener) => subscribe(CHANNELS.eventQuitRequested, () => listener()),
   },
 
   workspace: {
@@ -45,6 +52,7 @@ const bridge: AppBridge = {
   files: {
     listDirectory: (request) => ipcRenderer.invoke(CHANNELS.filesListDirectory, request),
     read: (request) => ipcRenderer.invoke(CHANNELS.filesRead, request),
+    write: (request) => ipcRenderer.invoke(CHANNELS.filesWrite, request),
   },
 
   fs: {

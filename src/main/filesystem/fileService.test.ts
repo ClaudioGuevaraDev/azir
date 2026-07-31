@@ -139,6 +139,144 @@ describe('symlinks', () => {
   });
 });
 
+describe('writing', () => {
+  const writerCapturing = () => {
+    const written: Array<{ path: string; text: string }> = [];
+    const service = createFileService({
+      writeFileBytes: async (target, bytes) => {
+        written.push({ path: target, text: bytes.toString('utf8') });
+      },
+    });
+    return { service, written };
+  };
+
+  it('writes LF when the file used LF', async () => {
+    const { service, written } = writerCapturing();
+
+    await service.writeFile('/abs/a.txt', 'a.txt', {
+      content: 'one\ntwo\n',
+      eol: 'lf',
+      hadBom: false,
+    });
+
+    expect(written[0]?.text).toBe('one\ntwo\n');
+  });
+
+  it('restores CRLF when the file used CRLF', async () => {
+    // Rewriting a CRLF file with LF turns a one-line edit into a whole-file diff, which for a
+    // tool whose purpose is reviewing changes is close to the worst possible behaviour.
+    const { service, written } = writerCapturing();
+
+    await service.writeFile('/abs/a.txt', 'a.txt', {
+      content: 'one\ntwo\n',
+      eol: 'crlf',
+      hadBom: false,
+    });
+
+    expect(written[0]?.text).toBe('one\r\ntwo\r\n');
+  });
+
+  it('falls back to LF for a file that was mixed', async () => {
+    const { service, written } = writerCapturing();
+
+    await service.writeFile('/abs/a.txt', 'a.txt', {
+      content: 'one\ntwo',
+      eol: 'mixed',
+      hadBom: false,
+    });
+
+    expect(written[0]?.text).toBe('one\ntwo');
+  });
+
+  it('restores a byte-order mark that was there, and adds none that was not', async () => {
+    const { service, written } = writerCapturing();
+
+    await service.writeFile('/abs/a.txt', 'a.txt', {
+      content: 'x',
+      eol: 'lf',
+      hadBom: true,
+    });
+    await service.writeFile('/abs/b.txt', 'b.txt', {
+      content: 'x',
+      eol: 'lf',
+      hadBom: false,
+    });
+
+    expect(written[0]?.text).toBe('﻿x');
+    expect(written[1]?.text).toBe('x');
+  });
+
+  it('reports the byte size actually written', async () => {
+    const { service } = writerCapturing();
+
+    const result = await service.writeFile('/abs/a.txt', 'a.txt', {
+      content: 'año',
+      eol: 'lf',
+      hadBom: false,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('unreachable');
+    }
+    // Four bytes, three characters: the size is bytes, not string length.
+    expect(result.value.byteSize).toBe(4);
+  });
+
+  it('serialises concurrent writes to the same file', async () => {
+    // Interleaved writes produce a mixture of both versions, which is a corrupted file rather
+    // than a stale one.
+    let concurrent = 0;
+    let peak = 0;
+    const service = createFileService({
+      writeFileBytes: async () => {
+        concurrent += 1;
+        peak = Math.max(peak, concurrent);
+        await new Promise((resolve) => setImmediate(resolve));
+        concurrent -= 1;
+      },
+    });
+
+    await Promise.all(
+      Array.from({ length: 5 }, (_, index) =>
+        service.writeFile('/abs/same.txt', 'same.txt', {
+          content: `v${index}`,
+          eol: 'lf',
+          hadBom: false,
+        }),
+      ),
+    );
+
+    expect(peak).toBe(1);
+  });
+
+  it.each([
+    ['EACCES', 'permission-denied'],
+    ['EPERM', 'permission-denied'],
+    ['EROFS', 'permission-denied'],
+    ['ENOENT', 'not-found'],
+    ['ENOSPC', 'internal'],
+  ])('maps a %s failure to %s rather than throwing', async (code, expected) => {
+    const service = createFileService({
+      writeFileBytes: async () => {
+        throw Object.assign(new Error(code), { code });
+      },
+    });
+
+    const result = await service.writeFile('/abs/a.txt', 'a.txt', {
+      content: 'x',
+      eol: 'lf',
+      hadBom: false,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('unreachable');
+    }
+    expect(result.error.code).toBe(expected);
+  });
+});
+
 describe('failures become state', () => {
   const failWith = (code: string) =>
     createFileService({

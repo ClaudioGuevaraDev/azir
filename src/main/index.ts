@@ -27,6 +27,8 @@ const bootstrap = async (): Promise<void> => {
   installGlobalWebContentsGuards();
 
   const context = createAppContext();
+  // Installed before the window exists, so a quit can never slip past it.
+  context.quitGuard.install();
 
   app.on('second-instance', focusExistingWindow);
 

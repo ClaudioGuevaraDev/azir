@@ -41,7 +41,22 @@ export const initialFocusState: FocusState = { panel: 'terminal' };
  * `search` and `confirm` from the spec's union are absent until they have callers: search
  * arrives in M8, confirm with editing in M7b.
  */
-export type Overlay = { readonly type: 'help' } | { readonly type: 'settings' };
+/**
+ * What a confirmation is about.
+ *
+ * Carried as data rather than a callback so the overlay stays a serialisable projection of
+ * state — an overlay holding a closure could not be logged, compared or replayed, and it would
+ * let a component smuggle behaviour past the reducer.
+ */
+export type ConfirmIntent =
+  | { readonly kind: 'discardChanges'; readonly path: string }
+  | { readonly kind: 'reloadFromDisk'; readonly path: string }
+  | { readonly kind: 'quitWithUnsaved'; readonly paths: readonly string[] };
+
+export type Overlay =
+  | { readonly type: 'help' }
+  | { readonly type: 'settings' }
+  | { readonly type: 'confirm'; readonly intent: ConfirmIntent };
 
 export interface OverlayState {
   /**

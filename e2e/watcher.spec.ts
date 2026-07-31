@@ -2,8 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { _electron as electron, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
+import { launchAzir } from './support';
 
 /**
  * The product's core loop, end to end and without touching the refresh button:
@@ -47,7 +48,7 @@ const openWorkspace = async (directory: string): Promise<Page> => {
 };
 
 test.beforeEach(async () => {
-  app = await electron.launch({ args: ['.'] });
+  app = await launchAzir();
 });
 
 test.afterEach(async () => {

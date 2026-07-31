@@ -124,6 +124,33 @@ dist:dir`, then launching `release/win-unpacked/Azir.exe` and running a command 
 its terminal — because "works in dev, dies when installed" is the characteristic
 failure here and no unit test can catch it.
 
+## Tests
+
+`npm test` runs Vitest across three projects (node, renderer, and one that asserts on
+the project itself). `npm run test:e2e` runs Playwright against a real packaged-shape
+Electron, so it needs `npm run build` first.
+
+Two things about the end-to-end suite are worth knowing before changing it.
+
+**Every launch gets its own `--user-data-dir`.** Azir takes a single-instance lock, and
+a shared user-data directory means every launch contends for the same one. If the
+previous test's Electron has not finished exiting, the next one loses the lock and
+quits before creating a window — so Playwright waits for a window that never arrives
+and the test dies at its own timeout, on whichever test happened to be next. It reads
+exactly like flake and is not. Isolating the directory also cut the suite from 3.6
+minutes to 1.5.
+
+**Specs open purpose-built fixtures in the temp directory, never this repository.**
+Opening a workspace starts a filesystem watcher, and the live repo contains `release/`
+and `test-results/` — the second of which Playwright writes to _while the suite is
+running_.
+
+And terminal output is read from `.xterm-rows`, never from the pane's text content: a
+locator's text includes the stylesheet xterm injects, whose child selectors contain
+`>`. Waiting for a prompt with `toContainText('>')` passes on the first poll whether or
+not a shell ever started. That assertion was vacuous for two milestones and hid a real
+regression.
+
 ## Platform support
 
 Windows is the development and verification platform. macOS and Linux targets are
@@ -142,16 +169,36 @@ needs CI with a platform matrix or real hardware.
 | M4 — git status                            | done        |
 | M5 — filesystem watcher                    | done        |
 | M6 — code viewer and diff                  | done        |
-| M7 — editing, layout, overlays             | not started |
+| M7 — editing, layout, overlays             | done        |
 | M8 — settings and search                   | not started |
 
-**The product's loop is complete.** An agent changes files; the workspace notices
-without being asked; the repository panel shows what moved; the viewer shows the
-file and its diff; the terminal is right there to act on it. What remains is
-refinement rather than the core: limited in-place editing, a configurable layout
-engine that degrades as the window shrinks, overlays, settings and search.
+**The product's loop is complete, and the user can now close it.** An agent changes
+files; the workspace notices without being asked; the repository panel shows what
+moved; the viewer shows the file and its diff; the terminal is right there to act on
+it — and a small correction no longer needs a second editor. What remains is settings
+and search.
 
-The viewer is read-only. Diffs are unified rather than side-by-side because the
+Editing is deliberately limited: type, delete, split and join lines, and save. No
+multi-cursor, no find-and-replace, no undo stack beyond what a single edit needs.
+The spec is explicit that Azir is not an IDE, and the case it does serve is the one
+that actually comes up while supervising — fixing a typo an agent left behind without
+leaving the review.
+
+Two things in it are less obvious than they look. Caret columns are **grapheme**
+indexes, not code-unit indexes, so an emoji or a combining accent is one press of the
+arrow key rather than two or three; `Intl.Segmenter` does the work. And writes are
+serialised **per path** through a keyed queue, because the watcher is live while the
+user types: without it a save and a reload can interleave on the same file. A newer
+queued write replaces an older waiting one but inherits its promise, so no caller is
+ever left hanging.
+
+Layout is a pure function from slot indexes to rectangles, which is what makes
+degradation testable rather than emergent — as the window shrinks, panels drop out in
+a defined order instead of collapsing into unusable slivers. Nothing renders until the
+stage has been measured; mounting a terminal into a 0×0 slot is not merely ugly, it
+leaves xterm attached to a degenerate grid and the pane permanently blank.
+
+The viewer is read-only in diff mode. Diffs are unified rather than side-by-side because the
 panel shares the window with a tree and a terminal, and a split view in that width
 truncates both sides. There is no syntax highlighting: the spec is explicit that
 Azir is not an IDE, and highlighting means either a grammar engine per language or

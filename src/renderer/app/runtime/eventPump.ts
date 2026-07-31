@@ -31,6 +31,8 @@ export interface EventPumpOptions {
   readonly activePaneId: () => TerminalPaneId | null;
   /** Directory paths the tree has loaded, for pre-minting ids on a truncated batch. */
   readonly loadedDirectories: () => readonly string[];
+  /** Open tabs with unsaved edits, for the quit confirmation. */
+  readonly unsavedPaths: () => readonly string[];
   readonly activityThrottleMs?: number;
   readonly now?: () => number;
 }
@@ -105,6 +107,14 @@ export const startEventPump = (options: EventPumpOptions): EventPump => {
         viewerContentRequestId: nextRequestId(),
         viewerDiffRequestId: nextRequestId(),
       });
+    }),
+  );
+
+  subscriptions.push(
+    options.bridge.app.onQuitRequested(() => {
+      // The paths are read here because the overlay slice cannot see the viewer slice, and the
+      // reducer is not allowed to go looking.
+      options.dispatch({ type: 'app/quitRequested', unsavedPaths: options.unsavedPaths() });
     }),
   );
 

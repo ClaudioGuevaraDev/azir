@@ -1,6 +1,8 @@
+import { applyEdit, joinForTransport } from '../document';
 import type { Effect } from '../effects';
 import {
   findTab,
+  hasUnsavedWork,
   initialViewerState,
   MAX_TABS,
   newTab,
@@ -224,7 +226,11 @@ export const viewerReducer: SliceReducer<ViewerState> = (state, action): Reducti
           tabs.length === 0 ? null : (tabs[Math.min(index, tabs.length - 1)]?.path ?? null);
       }
 
-      return changed({ tabs, activePath });
+      const next = { tabs, activePath };
+      // Closing the last dirty tab releases the quit guard.
+      return hasUnsavedWork(state) && !hasUnsavedWork(next)
+        ? withEffects(next, { type: 'app/setUnsaved', unsaved: false })
+        : changed(next);
     }
 
     case 'viewer/modeChanged': {
@@ -274,6 +280,153 @@ export const viewerReducer: SliceReducer<ViewerState> = (state, action): Reducti
       );
     }
 
+    case 'viewer/edited': {
+      const tab = findTab(state, action.path);
+      if (!tab || tab.content.status !== 'ready') {
+        return idle(state);
+      }
+
+      const result = applyEdit(tab.content.value.lines, tab.caret, action.operation);
+
+      // A caret move is not an edit. Marking the tab dirty for one would ask the user to save
+      // a file they only looked at.
+      if (!result.modified) {
+        const moved = replaceTab(state, action.path, (existing) =>
+          existing.caret.line === result.caret.line && existing.caret.column === result.caret.column
+            ? existing
+            : { ...existing, caret: result.caret },
+        );
+        return moved ? changed(moved) : idle(state);
+      }
+
+      const next = replaceTab(state, action.path, (existing) => ({
+        ...existing,
+        content:
+          existing.content.status === 'ready'
+            ? { status: 'ready', value: { ...existing.content.value, lines: result.lines } }
+            : existing.content,
+        caret: result.caret,
+        dirty: true,
+        // Any diff now describes the file on disk, not what is on screen.
+        diff: { status: 'idle' },
+        diffRequestId: null,
+        save: { status: 'idle' },
+      }));
+
+      if (!next) {
+        return idle(state);
+      }
+      // Main is told on the first edit, not on every keystroke — the effect key collapses
+      // repeats within a burst and the value only changes at the boundary.
+      return tab.dirty
+        ? changed(next)
+        : withEffects(next, { type: 'app/setUnsaved', unsaved: true });
+    }
+
+    case 'viewer/saveRequested': {
+      const tab = findTab(state, action.path);
+      if (!tab || tab.content.status !== 'ready' || !tab.dirty) {
+        return idle(state);
+      }
+
+      const document = tab.content.value;
+      const next = replaceTab(state, action.path, (existing) => ({
+        ...existing,
+        save: { status: 'saving' },
+        saveRequestId: action.requestId,
+      }));
+
+      return withEffects(next ?? state, {
+        type: 'viewer/writeFile',
+        sessionId: action.sessionId,
+        path: action.path,
+        content: joinForTransport(document.lines),
+        eol: document.eol,
+        hadBom: document.hadBom,
+        requestId: action.requestId,
+      });
+    }
+
+    case 'viewer/saved': {
+      const tab = findTab(state, action.path);
+      if (!tab || tab.saveRequestId !== action.requestId) {
+        return idle(state);
+      }
+
+      const next = replaceTab(state, action.path, (existing) => ({
+        ...existing,
+        dirty: false,
+        // The file on disk now matches the buffer, so the watcher event this write is about to
+        // produce is not news.
+        changedOnDisk: false,
+        save: { status: 'idle' },
+        saveRequestId: null,
+      }));
+
+      if (!next) {
+        return idle(state);
+      }
+      return hasUnsavedWork(next)
+        ? changed(next)
+        : withEffects(next, { type: 'app/setUnsaved', unsaved: false });
+    }
+
+    case 'viewer/saveFailed': {
+      const tab = findTab(state, action.path);
+      if (!tab || tab.saveRequestId !== action.requestId) {
+        return idle(state);
+      }
+      // Still dirty: a failed write means the edits are only in memory, which is exactly when
+      // the user must not be told they are safe.
+      const next = replaceTab(state, action.path, (existing) => ({
+        ...existing,
+        save: { status: 'failed', error: action.error },
+        saveRequestId: null,
+      }));
+      return next ? changed(next) : idle(state);
+    }
+
+    case 'viewer/closeRequested': {
+      /*
+       * A clean tab closes here and now. A dirty one does not — the overlay slice reacts to
+       * this same action by raising a confirmation, and the actual close arrives later as
+       * `viewer/closed`. Two slices responding independently to one action is how they
+       * coordinate without either reaching into the other (invariant 10).
+       */
+      if (action.dirty) {
+        return idle(state);
+      }
+      return viewerReducer(state, { type: 'viewer/closed', path: action.path });
+    }
+
+    case 'viewer/reloadRequested': {
+      const tab = findTab(state, action.path);
+      if (!tab) {
+        return idle(state);
+      }
+      const next = replaceTab(state, action.path, (existing) => ({
+        ...existing,
+        dirty: false,
+        changedOnDisk: false,
+        stale: false,
+        content: { status: 'loading' },
+        contentRequestId: action.requestId,
+        diff: { status: 'idle' },
+        diffRequestId: null,
+        save: { status: 'idle' },
+        saveRequestId: null,
+      }));
+
+      const withoutDirty = next ?? state;
+      return withEffects(
+        withoutDirty,
+        readFileEffect(action.sessionId, action.path, action.requestId),
+        ...(hasUnsavedWork(withoutDirty)
+          ? []
+          : [{ type: 'app/setUnsaved' as const, unsaved: false }]),
+      );
+    }
+
     case 'viewer/scrolled': {
       const next = replaceTab(state, action.path, (tab) => {
         const key = action.mode === 'code' ? 'codeTop' : 'diffTop';
@@ -296,6 +449,21 @@ export const viewerReducer: SliceReducer<ViewerState> = (state, action): Reducti
         const affected = action.batch.truncated || touched.has(tab.path);
         if (!affected) {
           return tab;
+        }
+
+        /*
+         * A dirty tab is never reloaded, active or not. The spec is unambiguous: "A dirty tab
+         * must never be silently reloaded after an external filesystem change. Instead:
+         * tab.changedOnDisk = true." Reloading would discard the user's work without asking,
+         * and an agent rewriting a file the user is editing is exactly the situation this
+         * application exists to supervise.
+         */
+        if (tab.dirty) {
+          if (tab.changedOnDisk) {
+            return tab;
+          }
+          anyChanged = true;
+          return { ...tab, changedOnDisk: true };
         }
 
         // The active tab is reloaded now; the rest are only marked. The spec calls for

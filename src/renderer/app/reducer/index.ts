@@ -59,6 +59,10 @@ const sessionOf = (action: Action): WorkspaceSessionId | undefined => {
     case 'viewer/activated':
     case 'viewer/modeChanged':
     case 'viewer/diffTargetChanged':
+    case 'viewer/saveRequested':
+    case 'viewer/saved':
+    case 'viewer/saveFailed':
+    case 'viewer/reloadRequested':
       return action.sessionId;
     default:
       return undefined;

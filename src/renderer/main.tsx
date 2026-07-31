@@ -35,6 +35,11 @@ startEventPump({
   dispatch: store.dispatch,
   activePaneId: () => selectActivePaneId(store.getState()),
   loadedDirectories: () => Object.keys(store.getState().repository.directories),
+  unsavedPaths: () =>
+    store
+      .getState()
+      .viewer.tabs.filter((tab) => tab.dirty)
+      .map((tab) => tab.path),
 });
 
 createRoot(container).render(

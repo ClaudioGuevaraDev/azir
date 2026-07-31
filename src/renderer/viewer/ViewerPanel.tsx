@@ -1,8 +1,13 @@
 import { memo, useCallback } from 'react';
 import type { DiffTarget, WorkspaceSessionId } from '@shared/ipc/contracts';
-import { diffTargetChanged, tabActivated, viewerModeChanged } from '../app/actions';
+import { diffTargetChanged, saveRequested, tabActivated, viewerModeChanged } from '../app/actions';
 import { useAppState, useDispatch } from '../app/react';
-import { selectActiveTab, selectActiveTabGitStatus, selectViewerTabs } from '../app/state';
+import {
+  selectActiveTab,
+  selectActiveTabGitStatus,
+  selectFocusedPanel,
+  selectViewerTabs,
+} from '../app/state';
 import { countDiffChanges, isUntracked, synthesizeAddedDiff, type ViewerTab } from '../app/viewer';
 import { CodeView } from './CodeView';
 import { DiffView } from './DiffView';
@@ -65,11 +70,23 @@ export const ViewerPanel = memo(({ sessionId }: ViewerPanelProps): React.JSX.Ele
               onClick={() => dispatch(tabActivated(sessionId, candidate.path))}
             >
               {/* The one thing a background tab reports: its file moved underneath it. */}
-              {candidate.stale && (
+              {candidate.stale && !candidate.dirty && (
                 <span
                   className="viewer__stale"
                   data-testid={`viewer-stale-${candidate.path}`}
                   aria-label="changed on disk"
+                />
+              )}
+              {candidate.dirty && (
+                <span
+                  className="viewer__dirty"
+                  data-conflict={candidate.changedOnDisk}
+                  data-testid={`viewer-dirty-${candidate.path}`}
+                  aria-label={
+                    candidate.changedOnDisk
+                      ? 'unsaved changes, and the file also changed on disk'
+                      : 'unsaved changes'
+                  }
                 />
               )}
               {basename(candidate.path)}
@@ -79,7 +96,15 @@ export const ViewerPanel = memo(({ sessionId }: ViewerPanelProps): React.JSX.Ele
               className="viewer__close"
               aria-label={`Close ${basename(candidate.path)}`}
               data-testid={`viewer-close-${candidate.path}`}
-              onClick={() => dispatch({ type: 'viewer/closed', path: candidate.path })}
+              // Always `closeRequested`: the reducer closes a clean tab and the overlay asks
+              // about a dirty one, so this button never has to know which.
+              onClick={() =>
+                dispatch({
+                  type: 'viewer/closeRequested',
+                  path: candidate.path,
+                  dirty: candidate.dirty,
+                })
+              }
             >
               ×
             </button>
@@ -125,6 +150,7 @@ const ViewerBody = ({
   onDiffScroll,
 }: ViewerBodyProps): React.JSX.Element => {
   const dispatch = useDispatch();
+  const focused = useAppState(selectFocusedPanel) === 'viewer';
 
   /*
    * An untracked file has no diff — `git diff` compares against the index, and the index
@@ -191,12 +217,53 @@ const ViewerBody = ({
           </span>
         )}
 
+        {tab.dirty && (
+          <button
+            type="button"
+            className="viewer__save"
+            data-testid="viewer-save"
+            disabled={tab.save.status === 'saving'}
+            onClick={() => dispatch(saveRequested(sessionId, tab.path))}
+          >
+            {tab.save.status === 'saving' ? 'Saving…' : 'Save (Ctrl+S)'}
+          </button>
+        )}
+
+        {tab.save.status === 'failed' && (
+          <span className="viewer__save-error" data-testid="viewer-save-error">
+            {tab.save.error.message}
+          </span>
+        )}
+
         {document && (
           <span className="viewer__meta">
             {document.lines.length} lines · {document.eol.toUpperCase()}
           </span>
         )}
       </div>
+
+      {/*
+        The conflict case the spec is emphatic about: the file moved on disk while there are
+        unsaved edits here. Nothing is reloaded automatically — the user is told, and chooses.
+      */}
+      {tab.changedOnDisk && (
+        <div className="viewer__conflict" data-testid="viewer-conflict">
+          <span>This file changed on disk. Your unsaved edits are still here.</span>
+          <button
+            type="button"
+            className="viewer__conflict-action"
+            data-testid="viewer-discard-mine"
+            onClick={() =>
+              dispatch({
+                type: 'overlay/opened',
+                overlay: { type: 'confirm', intent: { kind: 'reloadFromDisk', path: tab.path } },
+              })
+            }
+          >
+            Reload from disk
+          </button>
+        </div>
+      )}
 
       {tab.content.status === 'loading' && <p className="viewer__message">Reading…</p>}
 
@@ -207,7 +274,14 @@ const ViewerBody = ({
       )}
 
       {tab.mode === 'code' && document && (
-        <CodeView document={document} initialTop={tab.codeTop} onScroll={onCodeScroll} />
+        <CodeView
+          document={document}
+          caret={tab.caret}
+          focused={focused}
+          initialTop={tab.codeTop}
+          onScroll={onCodeScroll}
+          onEdit={(operation) => dispatch({ type: 'viewer/edited', path: tab.path, operation })}
+        />
       )}
 
       {tab.mode === 'diff' && (
