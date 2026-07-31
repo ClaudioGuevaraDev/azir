@@ -1,5 +1,11 @@
-import type { TerminalPaneId, WorkspaceInfo, WorkspaceSessionId } from '@shared/ipc/contracts';
+import type {
+  DirectoryEntry,
+  TerminalPaneId,
+  WorkspaceInfo,
+  WorkspaceSessionId,
+} from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
+import type { RepositoryView } from './repository';
 import { nextRequestId } from './runtime/requestIds';
 import type { RequestId, Severity } from './state';
 
@@ -40,6 +46,36 @@ export type Action =
     }
   | { readonly type: 'workspace/closeRequested' }
   | { readonly type: 'workspace/closed'; readonly sessionId: WorkspaceSessionId }
+  // ---- repository
+  | {
+      readonly type: 'repository/directoryRequested';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'repository/directoryLoaded';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+      readonly entries: readonly DirectoryEntry[];
+    }
+  | {
+      readonly type: 'repository/directoryFailed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+      readonly error: AppError;
+    }
+  | {
+      readonly type: 'repository/toggled';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+    }
+  | { readonly type: 'repository/collapsed'; readonly path: string }
+  | { readonly type: 'repository/selected'; readonly path: string }
+  | { readonly type: 'repository/viewChanged'; readonly view: RepositoryView }
   // ---- terminals
   | { readonly type: 'terminal/createRequested'; readonly sessionId: WorkspaceSessionId }
   | {
@@ -90,6 +126,20 @@ export type Action =
  */
 export const pathChosen = (path: string): Action => ({
   type: 'workspace/pathChosen',
+  path,
+  requestId: nextRequestId(),
+});
+
+export const directoryToggled = (sessionId: WorkspaceSessionId, path: string): Action => ({
+  type: 'repository/toggled',
+  sessionId,
+  path,
+  requestId: nextRequestId(),
+});
+
+export const directoryRequested = (sessionId: WorkspaceSessionId, path: string): Action => ({
+  type: 'repository/directoryRequested',
+  sessionId,
   path,
   requestId: nextRequestId(),
 });

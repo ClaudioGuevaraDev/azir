@@ -1,5 +1,6 @@
 import type { WorkspaceInfo } from '@shared/ipc/contracts';
 import { useDispatch } from '../app/react';
+import { RepositoryPanel } from '../repository/RepositoryPanel';
 import type { TerminalTransport } from '../terminal/controller';
 import type { TerminalRegistry } from '../terminal/registry';
 import { TerminalPanel } from '../terminal/TerminalPanel';
@@ -48,7 +49,13 @@ export const WorkspaceShell = ({
         </button>
       </header>
 
+      {/*
+        Two slots for now, side by side. The layout engine that arranges all three
+        panels by configurable order and arrangement is M7; hard-coding a split here
+        is honest about that rather than pretending the engine exists.
+      */}
       <div className="shell__panels" data-testid="workspace-panels">
+        <RepositoryPanel sessionId={info.sessionId} />
         <TerminalPanel sessionId={info.sessionId} registry={registry} transport={transport} />
       </div>
 

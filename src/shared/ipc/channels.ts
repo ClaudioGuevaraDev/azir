@@ -15,6 +15,8 @@ export const CHANNELS = {
   workspaceOpen: 'workspace:open',
   workspaceClose: 'workspace:close',
 
+  filesListDirectory: 'files:listDirectory',
+
   terminalCreate: 'terminal:create',
   terminalWrite: 'terminal:write',
   terminalResize: 'terminal:resize',

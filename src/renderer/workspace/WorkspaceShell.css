@@ -57,6 +57,8 @@
 }
 
 .shell__panels {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) 1fr;
   overflow: hidden;
   min-height: 0;
 }

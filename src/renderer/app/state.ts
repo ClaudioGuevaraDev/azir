@@ -1,5 +1,12 @@
 import type { TerminalPaneId, WorkspaceInfo, WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
+import {
+  initialRepositoryState,
+  selectRepositoryRows,
+  type RepositoryRow,
+  type RepositoryState,
+  type RepositoryView,
+} from './repository';
 
 /**
  * Renderer state.
@@ -87,12 +94,14 @@ export interface TerminalsState {
 
 export interface AppState {
   readonly workspace: WorkspaceState;
+  readonly repository: RepositoryState;
   readonly terminals: TerminalsState;
   readonly notices: NoticesState;
 }
 
 export const initialState: AppState = {
   workspace: { status: 'empty' },
+  repository: initialRepositoryState,
   terminals: { panes: [], activePaneId: null, nextPaneSeq: 1 },
   notices: { items: [], nextId: 1 },
 };
@@ -119,3 +128,13 @@ export const selectPanes = (state: AppState): readonly TerminalPaneState[] => st
 
 export const selectActivePaneId = (state: AppState): TerminalPaneId | null =>
   state.terminals.activePaneId;
+
+export const selectRows = (state: AppState): readonly RepositoryRow[] =>
+  selectRepositoryRows(state.repository);
+
+export const selectSelectedPath = (state: AppState): string | null => state.repository.selectedPath;
+
+export const selectRepositoryView = (state: AppState): RepositoryView => state.repository.view;
+
+export const selectRootStatus = (state: AppState): string =>
+  state.repository.directories['']?.status ?? 'unloaded';

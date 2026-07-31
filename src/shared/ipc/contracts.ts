@@ -107,6 +107,42 @@ export interface WorkspaceCloseResponse {
   readonly closed: boolean;
 }
 
+// ---------------------------------------------------------------- files:*
+
+/**
+ * A workspace-relative POSIX path. The empty string is the workspace root.
+ *
+ * POSIX rather than native so the same string means the same node on every
+ * platform, and relative rather than absolute so main always resolves it against
+ * the root it recorded for the session (see `WorkspaceSessionId`).
+ */
+export const relativePathSchema = z
+  .string()
+  .max(4096)
+  .refine((value) => !value.includes('\0'), { message: 'path must not contain NUL bytes' });
+
+export const listDirectoryRequestSchema = z.object({
+  sessionId: z.number().int().nonnegative(),
+  path: relativePathSchema,
+});
+
+export type ListDirectoryRequest = z.infer<typeof listDirectoryRequestSchema>;
+
+export type FileKind = 'file' | 'directory';
+
+export interface DirectoryEntry {
+  /** Workspace-relative POSIX path, so it is usable as a stable identity. */
+  readonly path: string;
+  readonly name: string;
+  readonly kind: FileKind;
+}
+
+export interface ListDirectoryResponse {
+  /** Echoed back so the reducer can route the response to the right node. */
+  readonly path: string;
+  readonly entries: readonly DirectoryEntry[];
+}
+
 // ------------------------------------------------------------- terminal:*
 
 /**

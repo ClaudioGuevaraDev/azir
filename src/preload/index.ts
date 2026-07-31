@@ -42,6 +42,10 @@ const bridge: AppBridge = {
     close: (request) => ipcRenderer.invoke(CHANNELS.workspaceClose, request),
   },
 
+  files: {
+    listDirectory: (request) => ipcRenderer.invoke(CHANNELS.filesListDirectory, request),
+  },
+
   terminal: {
     create: (request) => ipcRenderer.invoke(CHANNELS.terminalCreate, request),
     // `send`, not `invoke`: there is no reply to wait for, and a round trip per

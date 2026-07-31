@@ -1,6 +1,7 @@
 import { CHANNELS } from '@shared/ipc/channels';
 import { createDialogService, type DialogService } from './dialogs';
 import { createRendererChannel, type RendererChannel } from './rendererChannel';
+import { createFileService, type FileService } from '../filesystem/fileService';
 import { createTerminalManager, type TerminalManager } from '../terminal/terminalManager';
 import { createSessionRegistry, type SessionRegistry } from '../workspace/sessions';
 
@@ -15,6 +16,7 @@ import { createSessionRegistry, type SessionRegistry } from '../workspace/sessio
 export interface AppContext {
   readonly sessions: SessionRegistry;
   readonly dialogs: DialogService;
+  readonly files: FileService;
   readonly terminals: TerminalManager;
   readonly renderer: RendererChannel;
 }
@@ -49,6 +51,7 @@ export const createAppContext = (overrides: AppContextOverrides = {}): AppContex
   return {
     sessions,
     dialogs: overrides.dialogs ?? createDialogService(),
+    files: overrides.files ?? createFileService(),
     terminals,
     renderer,
   };

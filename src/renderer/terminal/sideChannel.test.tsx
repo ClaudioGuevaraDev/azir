@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppBridge } from '@shared/bridge';
 import type { TerminalDataEvent, TerminalExitEvent } from '@shared/ipc/contracts';
 import { StoreProvider, useAppState } from '../app/react';
+import { initialRepositoryState } from '../app/repository';
 import { startEventPump } from '../app/runtime/eventPump';
 import { createStore, type Store } from '../app/store';
 import { selectPanes, type AppState, type TerminalPaneState } from '../app/state';
@@ -51,6 +52,7 @@ const openWorkspaceState = (activePaneId: string | null): AppState => {
       status: 'open',
       info: { sessionId: 1, root: '/work/repo', name: 'repo' },
     },
+    repository: initialRepositoryState,
     terminals: { panes: [pane], activePaneId, nextPaneSeq: 2 },
     notices: { items: [], nextId: 1 },
   };

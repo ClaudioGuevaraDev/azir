@@ -19,6 +19,12 @@ export type Effect =
   | { readonly type: 'workspace/open'; readonly path: string; readonly requestId: RequestId }
   | { readonly type: 'workspace/close'; readonly sessionId: WorkspaceSessionId }
   | {
+      readonly type: 'repository/listDirectory';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+    }
+  | {
       readonly type: 'terminal/create';
       readonly sessionId: WorkspaceSessionId;
       readonly paneId: TerminalPaneId;
@@ -46,6 +52,11 @@ export const effectKey = (effect: Effect): string => {
       return `${effect.type}|${effect.requestId}|${effect.path}`;
     case 'workspace/close':
       return `${effect.type}|${effect.sessionId}`;
+    case 'repository/listDirectory':
+      // Keyed without the request id: two loads of the same directory queued in one
+      // burst are the same work, and issuing both would let the slower one overwrite
+      // the faster.
+      return `${effect.type}|${effect.sessionId}|${effect.path}`;
     case 'terminal/create':
     case 'terminal/kill':
       return `${effect.type}|${effect.sessionId}|${effect.paneId}`;

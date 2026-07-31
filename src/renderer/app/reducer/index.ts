@@ -4,6 +4,7 @@ import { dedupeEffects } from '../effects';
 import type { AppState } from '../state';
 import { combineSlices, type Reduction } from './combine';
 import { noticesReducer } from './notices';
+import { repositoryReducer } from './repository';
 import { terminalsReducer } from './terminals';
 import { workspaceReducer } from './workspace';
 
@@ -16,6 +17,7 @@ import { workspaceReducer } from './workspace';
  */
 const combined = combineSlices<AppState>({
   workspace: workspaceReducer,
+  repository: repositoryReducer,
   terminals: terminalsReducer,
   notices: noticesReducer,
 });
@@ -35,6 +37,10 @@ const sessionOf = (action: Action): WorkspaceSessionId | undefined => {
     case 'terminal/activity':
     case 'terminal/createRequested':
     case 'terminal/closeRequested':
+    case 'repository/directoryRequested':
+    case 'repository/directoryLoaded':
+    case 'repository/directoryFailed':
+    case 'repository/toggled':
       return action.sessionId;
     default:
       return undefined;

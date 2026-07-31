@@ -2,6 +2,8 @@ import type {
   CreateTerminalRequest,
   CreateTerminalResponse,
   KillTerminalRequest,
+  ListDirectoryRequest,
+  ListDirectoryResponse,
   PickFolderResponse,
   PingRequest,
   PingResponse,
@@ -40,6 +42,10 @@ export interface AppBridge {
     pickFolder(): Promise<Result<PickFolderResponse>>;
     open(request: WorkspaceOpenRequest): Promise<Result<WorkspaceInfo>>;
     close(request: WorkspaceCloseRequest): Promise<Result<WorkspaceCloseResponse>>;
+  };
+
+  readonly files: {
+    listDirectory(request: ListDirectoryRequest): Promise<Result<ListDirectoryResponse>>;
   };
 
   readonly terminal: {

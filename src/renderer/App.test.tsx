@@ -41,9 +41,17 @@ const renderApp = (): Harness => {
     value: { paneId: 'p1', shellPath: 'pwsh.exe', cwd: '/work/repo', pid: 1 },
   }));
 
+  // Opening a workspace also loads the repository root, so the bridge needs the
+  // files surface even for the workspace-level assertions below.
+  const listDirectory = vi.fn(async () => ({
+    ok: true as const,
+    value: { path: '', entries: [] },
+  }));
+
   const bridge = {
     app: { ping: vi.fn() },
     workspace: { pickFolder, open, close },
+    files: { listDirectory },
     terminal: {
       create: createTerminal,
       write: vi.fn(),

@@ -47,6 +47,31 @@ export const createEffectRunner = (bridge: AppBridge): EffectRunner => {
         return;
       }
 
+      case 'repository/listDirectory': {
+        const result = await bridge.files.listDirectory({
+          sessionId: effect.sessionId,
+          path: effect.path,
+        });
+        if (!result.ok) {
+          dispatch({
+            type: 'repository/directoryFailed',
+            sessionId: effect.sessionId,
+            path: effect.path,
+            requestId: effect.requestId,
+            error: result.error,
+          });
+          return;
+        }
+        dispatch({
+          type: 'repository/directoryLoaded',
+          sessionId: effect.sessionId,
+          path: effect.path,
+          requestId: effect.requestId,
+          entries: result.value.entries,
+        });
+        return;
+      }
+
       case 'terminal/create': {
         const result = await bridge.terminal.create({
           sessionId: effect.sessionId,

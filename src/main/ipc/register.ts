@@ -2,6 +2,7 @@ import { CHANNELS } from '@shared/ipc/channels';
 import {
   createTerminalRequestSchema,
   killTerminalRequestSchema,
+  listDirectoryRequestSchema,
   noRequestSchema,
   pingRequestSchema,
   resizeTerminalRequestSchema,
@@ -9,11 +10,12 @@ import {
   workspaceOpenRequestSchema,
   writeTerminalRequestSchema,
   type CreateTerminalResponse,
+  type ListDirectoryResponse,
   type PickFolderResponse,
   type PingResponse,
   type WorkspaceCloseResponse,
 } from '@shared/ipc/contracts';
-import { err, type Result } from '@shared/ipc/result';
+import { err, ok, type Result } from '@shared/ipc/result';
 import { ipcMain } from 'electron';
 import type { AppContext } from '../app/context';
 import { handle, handleResult, listen } from './handle';
@@ -54,6 +56,29 @@ export const registerIpcHandlers = (context: AppContext): void => {
     (request): WorkspaceCloseResponse => ({
       closed: context.sessions.close(request.sessionId),
     }),
+  );
+
+  // ---- files
+
+  handleResult(
+    CHANNELS.filesListDirectory,
+    listDirectoryRequestSchema,
+    async (request): Promise<Result<ListDirectoryResponse>> => {
+      // `resolve` is the session gate and the path sandbox in one call, and it
+      // checks the session first so a dead workspace leaks no information about
+      // whether a path exists.
+      const absolute = context.sessions.resolve(request.sessionId, request.path);
+      if (!absolute.ok) {
+        return err(absolute.error.code, absolute.error.message);
+      }
+
+      const entries = await context.files.listDirectory(absolute.value, request.path);
+      if (!entries.ok) {
+        return err(entries.error.code, entries.error.message, entries.error.detail);
+      }
+
+      return ok({ path: request.path, entries: entries.value });
+    },
   );
 
   // ---- terminal
