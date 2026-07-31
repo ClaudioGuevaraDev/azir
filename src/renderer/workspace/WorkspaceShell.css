@@ -1,0 +1,74 @@
+.shell {
+  display: grid;
+  grid-template-rows: var(--azir-panel-header-height) 1fr var(--azir-statusbar-height);
+  height: 100%;
+  background: var(--azir-bg);
+}
+
+.shell__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--azir-space-4);
+  padding: 0 var(--azir-space-4);
+  border-bottom: 1px solid var(--azir-border);
+  background: var(--azir-surface);
+  min-width: 0;
+}
+
+.shell__identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--azir-space-3);
+  min-width: 0;
+}
+
+.shell__name {
+  font-weight: 600;
+  font-size: var(--azir-text-md);
+  white-space: nowrap;
+}
+
+.shell__root {
+  overflow: hidden;
+  color: var(--azir-text-dim);
+  font-size: var(--azir-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.shell__close {
+  flex: none;
+  padding: var(--azir-space-1) var(--azir-space-3);
+  border: 1px solid var(--azir-border-strong);
+  border-radius: var(--azir-radius-sm);
+  color: var(--azir-text-muted);
+  font-size: var(--azir-text-xs);
+  transition:
+    color var(--azir-transition-fast),
+    border-color var(--azir-transition-fast);
+}
+
+.shell__close:hover {
+  color: var(--azir-text);
+  border-color: var(--azir-text-dim);
+}
+
+.shell__panels {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.shell__status {
+  display: flex;
+  align-items: center;
+  gap: var(--azir-space-4);
+  padding: 0 var(--azir-space-4);
+  border-top: 1px solid var(--azir-border);
+  background: var(--azir-surface);
+  color: var(--azir-text-dim);
+  font-family: var(--azir-font-mono);
+  font-size: var(--azir-text-xs);
+}

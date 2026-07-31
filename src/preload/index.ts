@@ -17,6 +17,12 @@ const bridge: AppBridge = {
   app: {
     ping: (request) => ipcRenderer.invoke(CHANNELS.appPing, request),
   },
+
+  workspace: {
+    pickFolder: () => ipcRenderer.invoke(CHANNELS.workspacePickFolder),
+    open: (request) => ipcRenderer.invoke(CHANNELS.workspaceOpen, request),
+    close: (request) => ipcRenderer.invoke(CHANNELS.workspaceClose, request),
+  },
 };
 
 contextBridge.exposeInMainWorld('azir', bridge);

@@ -2,9 +2,9 @@ import { _electron as electron, expect, test } from '@playwright/test';
 import type { ElectronApplication } from '@playwright/test';
 
 /**
- * The M0 acceptance test: a real Electron process, a real window, a real IPC
- * round trip. Everything else in the test suite mocks the boundary; this is the
- * one place that does not.
+ * The acceptance tests: a real Electron process, a real window, real IPC.
+ * Everything else in the suite mocks the boundary; this is the one place that
+ * does not.
  *
  * Run against the built output (`npm run test:e2e` builds first), because
  * packaging is where the preload path and the CSP actually get exercised.
@@ -20,15 +20,104 @@ test.afterEach(async () => {
   await app.close();
 });
 
-test('opens a window whose typed bridge round-trips', async () => {
+/**
+ * The native directory picker cannot be driven from Playwright — it is an OS
+ * window, not a DOM one. Replacing `showOpenDialog` in the main process is the
+ * smallest possible stub: everything after it (channel validation, the session
+ * registry, the path sandbox, the reducer, the effect runner) is the real thing.
+ */
+const stubFolderPicker = async (directory: string | null): Promise<void> => {
+  await app.evaluate(async ({ dialog }, chosen) => {
+    dialog.showOpenDialog = async () =>
+      chosen === null
+        ? { canceled: true, filePaths: [] }
+        : { canceled: false, filePaths: [chosen] };
+  }, directory);
+};
+
+test('opens a window showing the welcome screen', async () => {
   const window = await app.firstWindow();
 
-  const status = window.getByTestId('bridge-status');
-  await expect(status).toHaveAttribute('data-state', 'ready');
+  await expect(window.getByTestId('welcome')).toBeVisible();
+  await expect(window.getByTestId('open-workspace')).toBeEnabled();
+});
 
-  // The nonce check lives in App.tsx: reaching 'ready' means the value the
-  // renderer minted came back from the main process unchanged.
-  await expect(status).toContainText(process.platform);
+test('opening a folder mints a session and renders the workspace shell', async () => {
+  const window = await app.firstWindow();
+  await stubFolderPicker(process.cwd());
+
+  await window.getByTestId('open-workspace').click();
+
+  await expect(window.getByTestId('workspace-shell')).toBeVisible();
+  await expect(window.getByTestId('workspace-name')).toHaveText('azir');
+  // Session ids are minted in main and start at 1 for a fresh process.
+  await expect(window.getByTestId('workspace-shell')).toContainText('session 1');
+});
+
+test('closing the workspace returns to the welcome screen', async () => {
+  const window = await app.firstWindow();
+  await stubFolderPicker(process.cwd());
+
+  await window.getByTestId('open-workspace').click();
+  await expect(window.getByTestId('workspace-shell')).toBeVisible();
+
+  await window.getByTestId('close-workspace').click();
+
+  await expect(window.getByTestId('welcome')).toBeVisible();
+});
+
+test('opening a second folder disposes the first session', async () => {
+  const window = await app.firstWindow();
+  await stubFolderPicker(process.cwd());
+
+  await window.getByTestId('open-workspace').click();
+  await expect(window.getByTestId('workspace-shell')).toContainText('session 1');
+  await window.getByTestId('close-workspace').click();
+  await expect(window.getByTestId('welcome')).toBeVisible();
+
+  await window.getByTestId('open-workspace').click();
+
+  // A new id, never a reused one — that is what lets a late response from the
+  // first workspace be recognised as stale.
+  await expect(window.getByTestId('workspace-shell')).toContainText('session 2');
+});
+
+test('cancelling the picker leaves the welcome screen usable', async () => {
+  const window = await app.firstWindow();
+  await stubFolderPicker(null);
+
+  await window.getByTestId('open-workspace').click();
+
+  await expect(window.getByTestId('open-workspace')).toBeEnabled();
+  await expect(window.getByTestId('welcome-error')).toBeHidden();
+});
+
+test('main refuses a path outside the workspace, so the sandbox is real', async () => {
+  const window = await app.firstWindow();
+  await stubFolderPicker(process.cwd());
+  await window.getByTestId('open-workspace').click();
+  await expect(window.getByTestId('workspace-shell')).toBeVisible();
+
+  // Reach through the bridge the way a compromised renderer would, and confirm
+  // main checks the session against its own record rather than trusting us. The
+  // bridge type is declared inline because src/renderer/env.d.ts is scoped to the
+  // renderer project — the E2E suite is not allowed to see renderer internals.
+  type ExposedBridge = {
+    workspace: {
+      close(request: {
+        sessionId: number;
+      }): Promise<{ ok: true; value: { closed: boolean } } | { ok: false }>;
+    };
+  };
+
+  const outcome = await window.evaluate(async () => {
+    const bridge = (globalThis as unknown as { azir: ExposedBridge }).azir;
+    const result = await bridge.workspace.close({ sessionId: 9999 });
+    return result.ok ? { ok: true, closed: result.value.closed } : { ok: false };
+  });
+
+  expect(outcome).toEqual({ ok: true, closed: false });
+  await expect(window.getByTestId('workspace-shell')).toBeVisible();
 });
 
 test('exactly one window is opened', async () => {

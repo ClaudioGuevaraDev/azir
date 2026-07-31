@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron';
+import { createAppContext } from './app/context';
 import { registerIpcHandlers } from './ipc/register';
 import { createMainWindow } from './windows/mainWindow';
 import { installGlobalWebContentsGuards } from './windows/security';
@@ -25,9 +26,15 @@ const focusExistingWindow = (): void => {
 const bootstrap = async (): Promise<void> => {
   installGlobalWebContentsGuards();
 
+  const context = createAppContext();
+
   app.on('second-instance', focusExistingWindow);
 
   app.on('window-all-closed', () => {
+    // A workspace belongs to a window, so it goes when the window does — this is
+    // also the path taken when the renderer dies unexpectedly.
+    context.sessions.closeAll();
+
     // macOS convention keeps the app alive with no windows; every other
     // platform expects the process to end.
     if (process.platform !== 'darwin') {
@@ -41,9 +48,24 @@ const bootstrap = async (): Promise<void> => {
     }
   });
 
+  /**
+   * Releases whatever the workspace owns — PTYs from M2, the watcher from M5 —
+   * synchronously, and never prevents the quit.
+   *
+   * The tempting version of this handler awaits async cleanup inside `will-quit`
+   * with `preventDefault`, then calls `app.quit()` again when it finishes. That
+   * does not work: Electron does not restart a quit sequence, so the second
+   * `app.quit()` is a no-op and the process stays alive with zero windows.
+   * Measured directly, not inferred. Hence synchronous disposal — see
+   * SessionDisposeListener in workspace/sessions.ts.
+   */
+  app.on('before-quit', () => {
+    context.sessions.closeAll();
+  });
+
   await app.whenReady();
 
-  registerIpcHandlers();
+  registerIpcHandlers(context);
   createMainWindow();
 };
 
