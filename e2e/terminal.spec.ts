@@ -150,6 +150,59 @@ test('a noisy command does not freeze the UI', async () => {
   await expect(window.getByTestId('terminal-tab-p2')).toBeVisible();
 });
 
+test('Ctrl+C reaches the shell instead of being swallowed as an app shortcut', async () => {
+  // docs/architecture.md reserves only a small documented set of shortcuts and
+  // requires the terminal to keep Ctrl+C, Ctrl+D, Ctrl+R, Tab and the arrows. An
+  // application accelerator that ate Ctrl+C would make the terminal unusable for
+  // supervising anything long-running, which is the whole point of the tool.
+  const window = await openWorkspace();
+  const pane = window.getByTestId('terminal-pane-p1');
+  await expect(pane).toContainText('>', { timeout: 20_000 });
+
+  await pane.click();
+  await window.keyboard.type('Start-Sleep -Seconds 120');
+  await window.keyboard.press('Enter');
+  // Give the shell time to actually start sleeping, so the interrupt has a target.
+  await window.waitForTimeout(1500);
+
+  await window.keyboard.press('Control+C');
+
+  await window.keyboard.type('echo AFTER_INTERRUPT');
+  await window.keyboard.press('Enter');
+
+  // This is the whole assertion, and it is load-bearing: a shell still sleeping
+  // would not run the next command for another two minutes, so the 20s budget can
+  // only be met if the interrupt actually reached it. (Checking that "Start-Sleep"
+  // appears on screen would prove nothing — it is there because we typed it.)
+  await expect(pane).toContainText('AFTER_INTERRUPT', { timeout: 20_000 });
+});
+
+test('arrow-up recalls the previous command from shell history', async () => {
+  const window = await openWorkspace();
+  const pane = window.getByTestId('terminal-pane-p1');
+  await expect(pane).toContainText('>', { timeout: 20_000 });
+
+  await pane.click();
+  await window.keyboard.type('echo HISTORY_MARKER');
+  await window.keyboard.press('Enter');
+  await expect(pane).toContainText('HISTORY_MARKER', { timeout: 20_000 });
+
+  // The shell owns history, not Azir — so this passing means the arrow key was
+  // translated to an escape sequence and forwarded rather than intercepted.
+  await window.keyboard.press('ArrowUp');
+  await window.keyboard.press('Enter');
+
+  await expect
+    .poll(
+      async () => {
+        const text = (await pane.textContent()) ?? '';
+        return text.split('HISTORY_MARKER').length - 1;
+      },
+      { timeout: 20_000 },
+    )
+    .toBeGreaterThanOrEqual(3);
+});
+
 test('quitting leaves no orphan shells', async () => {
   test.skip(process.platform !== 'win32', 'process enumeration is implemented for Windows only');
 
