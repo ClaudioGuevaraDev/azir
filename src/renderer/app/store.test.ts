@@ -13,6 +13,7 @@ import type { AppState } from './state';
 
 const stateWith = (nextId: number): AppState => ({
   workspace: { status: 'empty' },
+  terminals: { panes: [], activePaneId: null, nextPaneSeq: 1 },
   notices: { items: [], nextId },
 });
 

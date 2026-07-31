@@ -1,28 +1,42 @@
-import type { WorkspaceSessionId } from '@shared/ipc/contracts';
+import type { TerminalPaneId, WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { RequestId } from './state';
 
 /**
- * Effects describe privileged or asynchronous work. They are data, so the
- * reducer can return them without performing them — that is what keeps the
- * reducer pure and testable (docs/architecture.md: "The reducer describes what
- * must happen. It never performs the work itself.").
+ * Effects describe privileged or asynchronous work. They are data, so the reducer
+ * can return them without performing them — that is what keeps the reducer pure and
+ * testable (docs/architecture.md: "The reducer describes what must happen. It never
+ * performs the work itself.").
  *
  * The effect runner in runtime/effectRunner.ts is the only interpreter.
+ *
+ * `terminal/write` and `terminal/resize` from the spec's effect list are absent on
+ * purpose: they are continuous, carry no application state, and go straight from
+ * the terminal controller to the bridge. Routing a keystroke through the reducer
+ * would make every character a state transition.
  */
 export type Effect =
   | { readonly type: 'workspace/pickFolder' }
   | { readonly type: 'workspace/open'; readonly path: string; readonly requestId: RequestId }
-  | { readonly type: 'workspace/close'; readonly sessionId: WorkspaceSessionId };
+  | { readonly type: 'workspace/close'; readonly sessionId: WorkspaceSessionId }
+  | {
+      readonly type: 'terminal/create';
+      readonly sessionId: WorkspaceSessionId;
+      readonly paneId: TerminalPaneId;
+    }
+  | {
+      readonly type: 'terminal/kill';
+      readonly sessionId: WorkspaceSessionId;
+      readonly paneId: TerminalPaneId;
+    };
 
 /**
  * A stable structural key for an effect, used to collapse duplicates produced
  * within a single dispatch burst.
  *
- * Two identical `workspace/pickFolder` effects would open two native dialogs;
- * duplicate git refreshes and PTY resizes are called out explicitly in the
- * performance rules. Deduplication is by exact equality only — near-duplicates
- * (a resize to a different size, a read of a different path) are genuinely
- * different work and must both run.
+ * Two identical `workspace/pickFolder` effects would open two native dialogs, and
+ * two identical `terminal/create` effects would try to spawn the same pane twice.
+ * Deduplication is by exact equality only — near-duplicates (a different path, a
+ * different pane) are genuinely different work and must both run.
  */
 export const effectKey = (effect: Effect): string => {
   switch (effect.type) {
@@ -32,6 +46,9 @@ export const effectKey = (effect: Effect): string => {
       return `${effect.type}|${effect.requestId}|${effect.path}`;
     case 'workspace/close':
       return `${effect.type}|${effect.sessionId}`;
+    case 'terminal/create':
+    case 'terminal/kill':
+      return `${effect.type}|${effect.sessionId}|${effect.paneId}`;
   }
 };
 

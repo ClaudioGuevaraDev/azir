@@ -9,6 +9,7 @@ import { StoreProvider } from './app/react';
 import { createEffectRunner } from './app/runtime/effectRunner';
 import { resetRequestIds } from './app/runtime/requestIds';
 import { createStore } from './app/store';
+import { createTerminalRegistry } from './terminal/registry';
 
 /**
  * The whole loop, end to end with the real reducer, real store and real effect
@@ -26,27 +27,42 @@ interface Harness {
   readonly pickFolder: ReturnType<typeof vi.fn>;
   readonly open: ReturnType<typeof vi.fn>;
   readonly close: ReturnType<typeof vi.fn>;
+  readonly createTerminal: ReturnType<typeof vi.fn>;
 }
 
 const renderApp = (): Harness => {
   const pickFolder = vi.fn<() => Promise<Result<string | null>>>();
   const open = vi.fn<() => Promise<Result<WorkspaceInfo>>>();
   const close = vi.fn<() => Promise<Result<{ closed: boolean }>>>();
+  // Opening a workspace autostarts a terminal, so the bridge needs the terminal
+  // surface even for the workspace-level assertions below.
+  const createTerminal = vi.fn(async () => ({
+    ok: true as const,
+    value: { paneId: 'p1', shellPath: 'pwsh.exe', cwd: '/work/repo', pid: 1 },
+  }));
 
   const bridge = {
     app: { ping: vi.fn() },
     workspace: { pickFolder, open, close },
+    terminal: {
+      create: createTerminal,
+      write: vi.fn(),
+      resize: vi.fn(),
+      kill: vi.fn(),
+      onData: vi.fn(() => () => {}),
+      onExit: vi.fn(() => () => {}),
+    },
   } as unknown as AppBridge;
 
   const store = createStore({ runEffect: createEffectRunner(bridge) });
 
   render(
     <StoreProvider store={store}>
-      <App />
+      <App registry={createTerminalRegistry()} transport={bridge.terminal} />
     </StoreProvider>,
   );
 
-  return { pickFolder, open, close };
+  return { pickFolder, open, close, createTerminal };
 };
 
 beforeEach(() => {

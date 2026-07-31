@@ -106,3 +106,77 @@ export interface WorkspaceCloseResponse {
   /** False when the session was already gone — closing is idempotent. */
   readonly closed: boolean;
 }
+
+// ------------------------------------------------------------- terminal:*
+
+/**
+ * Identifies one terminal pane. Stable for the pane's whole life, and **never
+ * reused** — that is what stops late PTY output from a killed pane being
+ * delivered to a new pane that happens to occupy the same visual slot
+ * (docs/architecture.md, Terminal identities).
+ */
+export type TerminalPaneId = string;
+
+/** Which shell to start. `default` lets main pick per platform. */
+export const shellKindSchema = z.enum(['default', 'powershell', 'pwsh', 'cmd', 'bash', 'zsh']);
+
+export type ShellKind = z.infer<typeof shellKindSchema>;
+
+const sessionScoped = {
+  sessionId: z.number().int().nonnegative(),
+  paneId: z.string().min(1).max(64),
+};
+
+/**
+ * Note what is absent: `cwd`. The working directory is derived in main from the
+ * session's recorded root, so the renderer cannot start a shell outside the
+ * workspace.
+ */
+export const createTerminalRequestSchema = z.object({
+  ...sessionScoped,
+  shell: shellKindSchema.default('default'),
+});
+
+export type CreateTerminalRequest = z.input<typeof createTerminalRequestSchema>;
+
+export interface CreateTerminalResponse {
+  readonly paneId: TerminalPaneId;
+  /** The executable actually started, for the pane title and for diagnostics. */
+  readonly shellPath: string;
+  readonly cwd: string;
+  readonly pid: number;
+}
+
+export const writeTerminalRequestSchema = z.object({
+  ...sessionScoped,
+  // Bounded because a paste is a single write and an unbounded one would let the
+  // renderer hand main an arbitrarily large string.
+  data: z.string().max(1_048_576),
+});
+
+export type WriteTerminalRequest = z.infer<typeof writeTerminalRequestSchema>;
+
+export const resizeTerminalRequestSchema = z.object({
+  ...sessionScoped,
+  cols: z.number().int().min(1).max(2000),
+  rows: z.number().int().min(1).max(2000),
+});
+
+export type ResizeTerminalRequest = z.infer<typeof resizeTerminalRequestSchema>;
+
+export const killTerminalRequestSchema = z.object(sessionScoped);
+
+export type KillTerminalRequest = z.infer<typeof killTerminalRequestSchema>;
+
+export interface TerminalDataEvent {
+  readonly sessionId: WorkspaceSessionId;
+  readonly paneId: TerminalPaneId;
+  readonly data: string;
+}
+
+export interface TerminalExitEvent {
+  readonly sessionId: WorkspaceSessionId;
+  readonly paneId: TerminalPaneId;
+  readonly exitCode: number | null;
+  readonly signal?: number;
+}

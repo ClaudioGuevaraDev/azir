@@ -1,0 +1,121 @@
+.terminals {
+  display: grid;
+  grid-template-rows: var(--azir-panel-header-height) 1fr;
+  height: 100%;
+  min-height: 0;
+  background: var(--azir-bg);
+}
+
+.terminals__tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--azir-border);
+  background: var(--azir-surface);
+}
+
+.terminals__tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+.terminals__tab {
+  display: flex;
+  align-items: center;
+  flex: none;
+  border-right: 1px solid var(--azir-border);
+  background: var(--azir-surface);
+  color: var(--azir-text-muted);
+  font-size: var(--azir-text-xs);
+}
+
+.terminals__tab[data-active='true'] {
+  background: var(--azir-bg);
+  color: var(--azir-text);
+  box-shadow: inset 0 -2px 0 var(--azir-accent);
+}
+
+.terminals__tab[data-lifecycle='exited'] .terminals__select,
+.terminals__tab[data-lifecycle='failed'] .terminals__select {
+  color: var(--azir-text-dim);
+}
+
+.terminals__tab[data-lifecycle='failed'] {
+  box-shadow: inset 0 -2px 0 var(--azir-danger);
+}
+
+.terminals__select {
+  display: flex;
+  align-items: center;
+  gap: var(--azir-space-2);
+  padding: 0 var(--azir-space-2) 0 var(--azir-space-4);
+  color: inherit;
+  font-family: var(--azir-font-mono);
+  font-size: inherit;
+  white-space: nowrap;
+}
+
+/* The one visible consequence of terminal output reaching application state. */
+.terminals__unread {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--azir-accent);
+}
+
+.terminals__close {
+  padding: 0 var(--azir-space-3) 0 var(--azir-space-1);
+  color: var(--azir-text-dim);
+  font-size: var(--azir-text-md);
+  line-height: 1;
+}
+
+.terminals__close:hover {
+  color: var(--azir-danger);
+}
+
+.terminals__add {
+  flex: none;
+  padding: 0 var(--azir-space-4);
+  color: var(--azir-text-dim);
+  font-size: var(--azir-text-lg);
+  line-height: 1;
+}
+
+.terminals__add:hover:not(:disabled) {
+  color: var(--azir-text);
+  background: var(--azir-surface-hover);
+}
+
+.terminals__add:disabled {
+  color: var(--azir-border-strong);
+  cursor: default;
+}
+
+.terminals__surface {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  padding: var(--azir-space-2) 0 var(--azir-space-2) var(--azir-space-3);
+}
+
+/*
+ * Every pane is absolutely positioned and fills the surface, so hiding one is a
+ * `hidden` attribute rather than an unmount — the spec requires hidden panes to keep
+ * running and switching panes not to recreate xterm.js.
+ */
+.terminal-pane {
+  position: absolute;
+  inset: var(--azir-space-2) 0 var(--azir-space-2) var(--azir-space-3);
+}
+
+.terminal-pane[hidden] {
+  display: none;
+}
+
+.terminals__empty {
+  margin: 0;
+  padding: var(--azir-space-4);
+  color: var(--azir-text-dim);
+  font-size: var(--azir-text-sm);
+}

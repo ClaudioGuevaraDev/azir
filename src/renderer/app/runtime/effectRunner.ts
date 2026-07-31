@@ -47,6 +47,38 @@ export const createEffectRunner = (bridge: AppBridge): EffectRunner => {
         return;
       }
 
+      case 'terminal/create': {
+        const result = await bridge.terminal.create({
+          sessionId: effect.sessionId,
+          paneId: effect.paneId,
+          shell: 'default',
+        });
+        if (!result.ok) {
+          dispatch({
+            type: 'terminal/createFailed',
+            sessionId: effect.sessionId,
+            paneId: effect.paneId,
+            error: result.error,
+          });
+          return;
+        }
+        dispatch({
+          type: 'terminal/created',
+          sessionId: effect.sessionId,
+          paneId: effect.paneId,
+          shellPath: result.value.shellPath,
+          cwd: result.value.cwd,
+        });
+        return;
+      }
+
+      case 'terminal/kill': {
+        // Fire-and-forget: the reducer has already removed the pane, and there is
+        // no outcome worth waiting for. Main's kill is idempotent.
+        bridge.terminal.kill({ sessionId: effect.sessionId, paneId: effect.paneId });
+        return;
+      }
+
       case 'workspace/close': {
         const result = await bridge.workspace.close({ sessionId: effect.sessionId });
         if (!result.ok) {

@@ -1,23 +1,29 @@
 import { CHANNELS } from '@shared/ipc/channels';
 import {
+  createTerminalRequestSchema,
+  killTerminalRequestSchema,
   noRequestSchema,
   pingRequestSchema,
+  resizeTerminalRequestSchema,
   workspaceCloseRequestSchema,
   workspaceOpenRequestSchema,
+  writeTerminalRequestSchema,
+  type CreateTerminalResponse,
   type PickFolderResponse,
   type PingResponse,
   type WorkspaceCloseResponse,
 } from '@shared/ipc/contracts';
+import { err, type Result } from '@shared/ipc/result';
+import { ipcMain } from 'electron';
 import type { AppContext } from '../app/context';
-import { handle, handleResult } from './handle';
+import { handle, handleResult, listen } from './handle';
 
 /**
  * Install every IPC handler. Called once, before the first window is created, so
  * no renderer can ever invoke a channel that is not yet registered.
  *
  * Handlers are thin: they validate (via `handle`), delegate to a service on the
- * context, and return. Anything with behaviour worth testing lives in the
- * service, not here.
+ * context, and return. Anything with behaviour worth testing lives in the service.
  */
 export const registerIpcHandlers = (context: AppContext): void => {
   handle(CHANNELS.appPing, pingRequestSchema, (request): PingResponse => {
@@ -30,12 +36,14 @@ export const registerIpcHandlers = (context: AppContext): void => {
     };
   });
 
+  // ---- workspace
+
   handle(CHANNELS.workspacePickFolder, noRequestSchema, (): Promise<PickFolderResponse> =>
     context.dialogs.pickDirectory(),
   );
 
-  // handleResult, not handle: "that folder does not exist" is an ordinary
-  // outcome the reducer should render, not an exception.
+  // handleResult, not handle: "that folder does not exist" is an ordinary outcome
+  // the reducer should render, not an exception.
   handleResult(CHANNELS.workspaceOpen, workspaceOpenRequestSchema, (request) =>
     context.sessions.open(request.path),
   );
@@ -47,4 +55,50 @@ export const registerIpcHandlers = (context: AppContext): void => {
       closed: context.sessions.close(request.sessionId),
     }),
   );
+
+  // ---- terminal
+
+  handleResult(
+    CHANNELS.terminalCreate,
+    createTerminalRequestSchema,
+    (request): Result<CreateTerminalResponse> => {
+      // The session gate comes first, and the cwd comes from the root main
+      // recorded — never from the renderer. A shell is the most powerful thing
+      // this application can start, so it must not be startable outside the
+      // workspace.
+      const session = context.sessions.require(request.sessionId);
+      if (!session.ok) {
+        return err(session.error.code, session.error.message);
+      }
+
+      return context.terminals.create({
+        sessionId: request.sessionId,
+        paneId: request.paneId,
+        cwd: session.value.root,
+        shell: request.shell ?? 'default',
+      });
+    },
+  );
+
+  // `listen`, not `handle`: keystrokes and resizes are fire-and-forget. Awaiting a
+  // reply per keypress would add a round trip to every character typed.
+  listen(CHANNELS.terminalWrite, writeTerminalRequestSchema, (request) => {
+    context.terminals.write(request.sessionId, request.paneId, request.data);
+  });
+
+  listen(CHANNELS.terminalResize, resizeTerminalRequestSchema, (request) => {
+    context.terminals.resize(request.sessionId, request.paneId, request.cols, request.rows);
+  });
+
+  listen(CHANNELS.terminalKill, killTerminalRequestSchema, (request) => {
+    context.terminals.kill(request.sessionId, request.paneId);
+  });
+};
+
+/** Removes every handler. Used when tearing down between tests. */
+export const removeIpcHandlers = (): void => {
+  for (const channel of Object.values(CHANNELS)) {
+    ipcMain.removeHandler(channel);
+    ipcMain.removeAllListeners(channel);
+  }
 };

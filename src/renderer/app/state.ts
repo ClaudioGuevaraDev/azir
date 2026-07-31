@@ -1,4 +1,4 @@
-import type { WorkspaceInfo, WorkspaceSessionId } from '@shared/ipc/contracts';
+import type { TerminalPaneId, WorkspaceInfo, WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
 
 /**
@@ -7,17 +7,17 @@ import type { AppError } from '@shared/ipc/result';
  * docs/architecture.md sketches the full `AppState` with nine slices. Slices are
  * added as their milestone lands rather than up front, per invariant 15 ("no
  * abstraction is added without an actual caller") — an empty slice reducer is an
- * abstraction with no caller, and it invites code that pretends the feature
- * exists.
+ * abstraction with no caller, and it invites code that pretends the feature exists.
  *
- * Everything here is serialisable. Long-lived system handles (PTYs, watchers,
- * file descriptors) belong to the main process; the renderer keeps identities and
- * snapshots only.
+ * Everything here is serialisable. Long-lived system handles (PTYs, watchers, file
+ * descriptors) belong to the main process; the renderer keeps identities and
+ * snapshots only. Note in particular that no terminal *output* appears anywhere
+ * below — the xterm.js instance is the presentation buffer.
  */
 
 /**
- * Correlates a response with the request that asked for it, so a response that
- * has been superseded can be recognised and dropped.
+ * Correlates a response with the request that asked for it, so a response that has
+ * been superseded can be recognised and dropped.
  *
  * Minted at the dispatch edge — see runtime/requestIds.ts. The reducer only ever
  * *compares* these, because minting one would make the reducer impure and break
@@ -49,20 +49,51 @@ export type WorkspaceState =
 export interface NoticesState {
   readonly items: readonly Notice[];
   /**
-   * Minted inside the reducer rather than at the edge. Unlike a request id this
-   * is legitimate: it is a pure function of prior state, so the reducer stays
+   * Minted inside the reducer rather than at the edge. Unlike a request id this is
+   * legitimate: it is a pure function of prior state, so the reducer stays
    * deterministic and snapshot-testable.
    */
   readonly nextId: number;
 }
 
+export type TerminalLifecycle = 'starting' | 'running' | 'exited' | 'failed';
+
+export interface TerminalPaneState {
+  readonly id: TerminalPaneId;
+  readonly title: string;
+  readonly lifecycle: TerminalLifecycle;
+  readonly cwd: string;
+  readonly exitCode: number | null;
+  /**
+   * Set when a hidden pane produces output, cleared when it is activated. This is
+   * the *only* thing the reducer learns about terminal output, and the controller
+   * raises it at most once every 500 ms — see terminal/registry.ts.
+   */
+  readonly hasUnreadOutput: boolean;
+  readonly error?: AppError;
+}
+
+export interface TerminalsState {
+  readonly panes: readonly TerminalPaneState[];
+  readonly activePaneId: TerminalPaneId | null;
+  /**
+   * Monotonic across the whole application run, deliberately not reset when a
+   * workspace closes. Minting a pane id inside the reducer is pure — unlike a
+   * request id — and never reusing one is what stops late PTY output from being
+   * delivered to a new pane in the same visual slot.
+   */
+  readonly nextPaneSeq: number;
+}
+
 export interface AppState {
   readonly workspace: WorkspaceState;
+  readonly terminals: TerminalsState;
   readonly notices: NoticesState;
 }
 
 export const initialState: AppState = {
   workspace: { status: 'empty' },
+  terminals: { panes: [], activePaneId: null, nextPaneSeq: 1 },
   notices: { items: [], nextId: 1 },
 };
 
@@ -70,8 +101,9 @@ export const initialState: AppState = {
 
 /**
  * Selectors are module-level constants because `useAppState` uses the selector's
- * identity as a memoisation key — an inline arrow would allocate a new one on
- * every render.
+ * identity as a memoisation key — an inline arrow would allocate a new one on every
+ * render. They must also return a stable reference: a selector that builds a new
+ * object would report a change on every read.
  */
 export const selectWorkspace = (state: AppState): WorkspaceState => state.workspace;
 
@@ -82,3 +114,8 @@ export const selectSessionId = (state: AppState): WorkspaceSessionId | null =>
 
 export const selectIsBusy = (state: AppState): boolean =>
   state.workspace.status === 'picking' || state.workspace.status === 'opening';
+
+export const selectPanes = (state: AppState): readonly TerminalPaneState[] => state.terminals.panes;
+
+export const selectActivePaneId = (state: AppState): TerminalPaneId | null =>
+  state.terminals.activePaneId;

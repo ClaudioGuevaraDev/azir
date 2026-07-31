@@ -119,7 +119,10 @@ runnable state.
 Packaging keeps `**/node_modules/node-pty/**` outside the asar archive
 (`asarUnpack`): Windows cannot `LoadLibrary` a `.node` from inside an archive, and
 node-pty resolves `conpty.dll`, `OpenConsole.exe` and `winpty-agent.exe` relative
-to its own directory.
+to its own directory. This was verified against a real packaged build — `npm run
+dist:dir`, then launching `release/win-unpacked/Azir.exe` and running a command in
+its terminal — because "works in dev, dies when installed" is the characteristic
+failure here and no unit test can catch it.
 
 ## Platform support
 
@@ -130,9 +133,35 @@ needs CI with a platform matrix or real hardware.
 
 ## Status
 
-| Milestone                                                           | State       |
-| ------------------------------------------------------------------- | ----------- |
-| M0 — shell, security, boundaries                                    | done        |
-| M1 — typed IPC spine, reducer/effect store                          | in progress |
-| M2 — integrated terminal                                            | in progress |
-| M3–M8 — repository, git, watcher, viewer, editing, settings, search | not started |
+| Milestone                                  | State       |
+| ------------------------------------------ | ----------- |
+| M0 — shell, security, boundaries           | done        |
+| M1 — typed IPC spine, reducer/effect store | done        |
+| M2 — integrated terminal                   | done        |
+| M3 — filesystem and repository tree        | not started |
+| M4 — git status and diff                   | not started |
+| M5 — filesystem watcher                    | not started |
+| M6 — code viewer                           | not started |
+| M7 — editing, layout, overlays             | not started |
+| M8 — settings and search                   | not started |
+
+Azir currently opens a folder and gives you a working integrated terminal with
+several concurrent PTYs. The repository tree, git status, diff and viewer panels
+are the next three milestones.
+
+### Deviations from the spec, and why
+
+Two things in `docs/architecture.md` are deliberately not implemented as written.
+Both are documented at the code that replaces them.
+
+**`terminal/output` is not an action.** The spec lists one, but dispatching an
+action per PTY chunk contradicts its own performance rules 1–2 and its statement
+that the xterm.js instance is the terminal's presentation buffer. Bytes travel a
+side channel to the pane's controller instead (`src/renderer/terminal/registry.ts`).
+What the reducer learns is `terminal/activity` — one throttled bit meaning "this
+hidden pane produced output". `src/renderer/terminal/sideChannel.test.tsx` asserts
+that 10,000 chunks cause zero re-renders, so this cannot regress quietly.
+
+**`terminal/write` and `terminal/resize` are not effects.** Keystrokes and window
+drags are continuous and carry no application state; routing them through the
+reducer would make every character a state transition.

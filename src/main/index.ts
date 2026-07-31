@@ -61,12 +61,20 @@ const bootstrap = async (): Promise<void> => {
    */
   app.on('before-quit', () => {
     context.sessions.closeAll();
+    // Belt and braces: `closeAll` kills the panes the live session owned, and this
+    // catches anything left over. An orphan shell in Task Manager is the failure
+    // mode, and it is invisible until the user goes looking.
+    context.terminals.disposeAll();
   });
 
   await app.whenReady();
 
   registerIpcHandlers(context);
-  createMainWindow();
+
+  const window = createMainWindow();
+  // Bound to this window's WebContents rather than broadcast, so a service can
+  // never push to a window it does not belong to.
+  context.renderer.attach(window.webContents);
 };
 
 // Two copies of Azir supervising the same workspace would each own a watcher

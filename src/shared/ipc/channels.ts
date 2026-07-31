@@ -14,6 +14,18 @@ export const CHANNELS = {
   workspacePickFolder: 'workspace:pickFolder',
   workspaceOpen: 'workspace:open',
   workspaceClose: 'workspace:close',
+
+  terminalCreate: 'terminal:create',
+  terminalWrite: 'terminal:write',
+  terminalResize: 'terminal:resize',
+  terminalKill: 'terminal:kill',
+
+  // main → renderer. `terminal:data` is the highest-traffic channel in the
+  // application by orders of magnitude; see main/terminal/outputPump.ts for why
+  // it is batched and src/renderer/terminal/registry.ts for why its payload never
+  // reaches the reducer.
+  eventTerminalData: 'event:terminal:data',
+  eventTerminalExit: 'event:terminal:exit',
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];

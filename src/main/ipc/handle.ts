@@ -38,6 +38,40 @@ export const handle = <Request, Response>(
 };
 
 /**
+ * Fire-and-forget commands: no reply, and the sender does not wait.
+ *
+ * Used for PTY keystrokes and resizes. Those are latency-sensitive and produce no
+ * value the caller needs — a round trip per character typed would make the
+ * integrated terminal feel worse than the shell it hosts
+ * (docs/architecture.md: "PTY traffic never waits behind git, search or filesystem
+ * scans").
+ *
+ * Validation and the never-throw guarantee still apply. Because there is no
+ * channel back, a rejected payload can only be logged; the alternative — throwing
+ * inside an `ipcMain.on` listener — would surface as an unhandled exception in the
+ * main process.
+ */
+export const listen = <Request>(
+  channel: string,
+  schema: ZodType<Request>,
+  handler: (request: Request) => void,
+): void => {
+  ipcMain.on(channel, (_event, raw: unknown) => {
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      console.error(`[ipc] ${channel} rejected an invalid payload:`, parsed.error.message);
+      return;
+    }
+
+    try {
+      handler(parsed.data);
+    } catch (error) {
+      console.error(`[ipc] ${channel} threw:`, error);
+    }
+  });
+};
+
+/**
  * A handler that is expected to fail in ordinary use returns its own Result
  * instead of throwing. This variant passes it through untouched while still
  * validating the request and still catching genuine bugs.

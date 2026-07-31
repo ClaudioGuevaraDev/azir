@@ -1,4 +1,4 @@
-import type { WorkspaceInfo, WorkspaceSessionId } from '@shared/ipc/contracts';
+import type { TerminalPaneId, WorkspaceInfo, WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
 import { nextRequestId } from './runtime/requestIds';
 import type { RequestId, Severity } from './state';
@@ -7,15 +7,20 @@ import type { RequestId, Severity } from './state';
  * Actions describe user intent or completed external work.
  *
  * They carry facts, never callbacks — an action holding a function cannot be
- * logged, replayed or compared, and it lets a component smuggle behaviour past
- * the reducer.
+ * logged, replayed or compared, and it lets a component smuggle behaviour past the
+ * reducer.
  *
- * Note what is *absent*: there is no `terminal/output`. docs/architecture.md
- * lists one, but dispatching an action per PTY chunk contradicts its own
- * performance rules 1–2 and the statement that xterm.js is the terminal's
- * presentation buffer. Terminal bytes travel a side channel instead; see
- * src/renderer/terminal/registry.ts. The action is not left in the union
- * unused, because an unused-but-documented action gets used.
+ * Note what is *absent*: there is no `terminal/output`. docs/architecture.md lists
+ * one, but dispatching an action per PTY chunk contradicts its own performance
+ * rules 1–2 and its statement that xterm.js is the terminal's presentation buffer.
+ * Terminal bytes travel a side channel instead; see
+ * src/renderer/terminal/registry.ts. The action is not left in the union unused,
+ * because an unused-but-documented action gets used. `terminal/activity` is its
+ * replacement: one throttled bit, not a byte stream.
+ *
+ * Keystrokes and resizes are likewise absent, for the same reason — they are
+ * continuous, carry no application state, and go straight from the controller to
+ * the bridge.
  */
 export type Action =
   // ---- workspace
@@ -35,6 +40,39 @@ export type Action =
     }
   | { readonly type: 'workspace/closeRequested' }
   | { readonly type: 'workspace/closed'; readonly sessionId: WorkspaceSessionId }
+  // ---- terminals
+  | { readonly type: 'terminal/createRequested'; readonly sessionId: WorkspaceSessionId }
+  | {
+      readonly type: 'terminal/created';
+      readonly sessionId: WorkspaceSessionId;
+      readonly paneId: TerminalPaneId;
+      readonly shellPath: string;
+      readonly cwd: string;
+    }
+  | {
+      readonly type: 'terminal/createFailed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly paneId: TerminalPaneId;
+      readonly error: AppError;
+    }
+  | {
+      readonly type: 'terminal/exited';
+      readonly sessionId: WorkspaceSessionId;
+      readonly paneId: TerminalPaneId;
+      readonly exitCode: number | null;
+    }
+  | {
+      readonly type: 'terminal/closeRequested';
+      readonly sessionId: WorkspaceSessionId;
+      readonly paneId: TerminalPaneId;
+    }
+  | { readonly type: 'terminal/activated'; readonly paneId: TerminalPaneId }
+  /** One throttled bit meaning "this hidden pane produced output". */
+  | {
+      readonly type: 'terminal/activity';
+      readonly sessionId: WorkspaceSessionId;
+      readonly paneId: TerminalPaneId;
+    }
   // ---- notices
   | {
       readonly type: 'notice/raised';
