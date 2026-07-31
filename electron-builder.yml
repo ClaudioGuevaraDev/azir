@@ -1,0 +1,49 @@
+appId: dev.claudioguevara.azir
+productName: Azir
+copyright: Copyright © 2026 Claudio Guevara
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+# node-pty ships Node-API prebuilt binaries (verified: the same pty.node loads
+# under Node ABI 137 and Electron ABI 146), so there is nothing to rebuild
+# against Electron's ABI. Leaving npmRebuild on would invoke node-gyp for no
+# reason and would fail on machines without a C++ toolchain.
+npmRebuild: false
+
+# Windows' loader cannot LoadLibrary a .node from inside app.asar, and node-pty
+# resolves conpty.dll / OpenConsole.exe / winpty-agent.exe relative to its own
+# directory. Both need to live on the real filesystem.
+asarUnpack:
+  - '**/node_modules/node-pty/**'
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]

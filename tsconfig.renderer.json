@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    // No "node" here. The renderer must not see Node's globals or module
+    // typings — that is invariant 4 of docs/architecture.md enforced at the
+    // type level, and it is why `import fs from 'fs'` fails typecheck and not
+    // only lint. `vite/client` provides import.meta.env and asset modules.
+    "types": ["vite/client"],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.renderer.tsbuildinfo",
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@renderer/*": ["src/renderer/*"]
+    }
+  },
+  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/shared/**/*.ts"]
+}

@@ -1,0 +1,67 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--azir-bg);
+  color: var(--azir-text);
+  font-family: var(--azir-font-ui);
+  font-size: var(--azir-text-md);
+  line-height: 1.45;
+  /* This is a desktop application window, not a document. */
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Text the user might want to copy — paths, output, code — opts back in. */
+code,
+pre,
+.azir-selectable {
+  user-select: text;
+  font-family: var(--azir-font-mono);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--azir-accent);
+  outline-offset: 1px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--azir-border-strong);
+  border: 2px solid var(--azir-bg);
+  border-radius: var(--azir-radius-lg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--azir-text-dim);
+}

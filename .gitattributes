@@ -1,0 +1,20 @@
+# This is a cross-platform project with `end_of_line = lf` in .editorconfig and
+# `endOfLine: "lf"` in Prettier. Without this file, Windows checkouts get CRLF
+# from core.autocrlf and every formatter run shows the whole tree as modified.
+* text=auto eol=lf
+
+# Binary assets, so git never tries to normalise them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.node binary
+*.dll binary
+*.exe binary
+
+# Generated; keep it out of diffs and merge conflicts.
+package-lock.json -diff linguist-generated

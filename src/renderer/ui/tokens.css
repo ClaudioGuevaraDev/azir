@@ -1,0 +1,97 @@
+/*
+ * Design tokens. Every colour, font and spacing step in the application comes
+ * from this file.
+ *
+ * The palette is dark-first and deliberately tuned against the 16 ANSI colours
+ * below: the terminal occupies a third of the workspace, so if the chrome and
+ * the shell disagree about what "red" or "background" means, the window reads
+ * as two applications stapled together. Adding a light theme later means adding
+ * a second block here — not touching components.
+ */
+:root {
+  /* --- Surfaces, from furthest back to closest to the user. */
+  --azir-bg: #0b0d10;
+  --azir-surface: #11151a;
+  --azir-surface-raised: #171c22;
+  --azir-surface-hover: #1d232b;
+  --azir-surface-active: #243040;
+
+  /* --- Lines. `strong` is for focus and panel separation, not decoration. */
+  --azir-border: #222933;
+  --azir-border-strong: #323d4a;
+
+  /* --- Text. Four steps is enough for a dense tool; more invites drift. */
+  --azir-text: #d6dde6;
+  --azir-text-muted: #8b97a6;
+  --azir-text-dim: #5b6672;
+  --azir-text-inverse: #0b0d10;
+
+  /* --- Semantic accents. Each maps onto an ANSI hue below. */
+  --azir-accent: #4d9dff;
+  --azir-accent-hover: #6db0ff;
+  --azir-accent-subtle: #16283d;
+  --azir-success: #4ec97a;
+  --azir-warning: #e0b341;
+  --azir-danger: #f2685c;
+  --azir-info: #56b6c2;
+
+  /* --- Git status hues, used by the repository panel and the diff gutter. */
+  --azir-added: #4ec97a;
+  --azir-modified: #e0b341;
+  --azir-deleted: #f2685c;
+  --azir-untracked: #8b97a6;
+  --azir-renamed: #4d9dff;
+  --azir-conflict: #d778e8;
+
+  /* --- The xterm.js palette. Handed to the Terminal constructor verbatim. */
+  --azir-ansi-black: #0b0d10;
+  --azir-ansi-red: #f2685c;
+  --azir-ansi-green: #4ec97a;
+  --azir-ansi-yellow: #e0b341;
+  --azir-ansi-blue: #4d9dff;
+  --azir-ansi-magenta: #d778e8;
+  --azir-ansi-cyan: #56b6c2;
+  --azir-ansi-white: #d6dde6;
+  --azir-ansi-bright-black: #5b6672;
+  --azir-ansi-bright-red: #ff8579;
+  --azir-ansi-bright-green: #6fe098;
+  --azir-ansi-bright-yellow: #f5cc5f;
+  --azir-ansi-bright-blue: #79b6ff;
+  --azir-ansi-bright-magenta: #e79bf5;
+  --azir-ansi-bright-cyan: #79d2dd;
+  --azir-ansi-bright-white: #f0f4f9;
+  --azir-cursor: #4d9dff;
+  --azir-selection: #2b3d54;
+
+  /* --- Type. Monospace for anything a shell or a file produced. */
+  --azir-font-mono:
+    'Cascadia Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  --azir-font-ui:
+    'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', system-ui,
+    sans-serif;
+
+  --azir-text-xs: 11px;
+  --azir-text-sm: 12px;
+  --azir-text-md: 13px;
+  --azir-text-lg: 15px;
+  --azir-text-xl: 20px;
+
+  /* --- Density. A supervision tool shows rows, so rows are the unit. */
+  --azir-row-height: 22px;
+  --azir-space-1: 2px;
+  --azir-space-2: 4px;
+  --azir-space-3: 8px;
+  --azir-space-4: 12px;
+  --azir-space-5: 16px;
+  --azir-space-6: 24px;
+  --azir-space-7: 32px;
+
+  --azir-radius-sm: 3px;
+  --azir-radius-md: 5px;
+  --azir-radius-lg: 8px;
+
+  --azir-panel-header-height: 30px;
+  --azir-statusbar-height: 24px;
+
+  --azir-transition-fast: 90ms ease-out;
+}
