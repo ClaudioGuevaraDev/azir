@@ -48,10 +48,18 @@ const renderApp = (): Harness => {
     value: { path: '', entries: [] },
   }));
 
+  // Reports git as unavailable, which is the interesting default: these tests assert
+  // workspace behaviour, and it must hold whether or not git is present.
+  const gitStatus = vi.fn(async () => ({
+    ok: false as const,
+    error: { code: 'git-missing' as const, message: 'git is not installed, or not on PATH.' },
+  }));
+
   const bridge = {
     app: { ping: vi.fn() },
     workspace: { pickFolder, open, close },
     files: { listDirectory },
+    git: { status: gitStatus },
     terminal: {
       create: createTerminal,
       write: vi.fn(),

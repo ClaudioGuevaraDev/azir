@@ -41,6 +41,9 @@ const sessionOf = (action: Action): WorkspaceSessionId | undefined => {
     case 'repository/directoryLoaded':
     case 'repository/directoryFailed':
     case 'repository/toggled':
+    case 'git/refreshRequested':
+    case 'git/refreshed':
+    case 'git/refreshFailed':
       return action.sessionId;
     default:
       return undefined;

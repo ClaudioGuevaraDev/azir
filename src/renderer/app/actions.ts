@@ -1,5 +1,6 @@
 import type {
   DirectoryEntry,
+  GitStatusResponse,
   TerminalPaneId,
   WorkspaceInfo,
   WorkspaceSessionId,
@@ -76,6 +77,23 @@ export type Action =
   | { readonly type: 'repository/collapsed'; readonly path: string }
   | { readonly type: 'repository/selected'; readonly path: string }
   | { readonly type: 'repository/viewChanged'; readonly view: RepositoryView }
+  | {
+      readonly type: 'git/refreshRequested';
+      readonly sessionId: WorkspaceSessionId;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'git/refreshed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly requestId: RequestId;
+      readonly snapshot: GitStatusResponse;
+    }
+  | {
+      readonly type: 'git/refreshFailed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly requestId: RequestId;
+      readonly error: AppError;
+    }
   // ---- terminals
   | { readonly type: 'terminal/createRequested'; readonly sessionId: WorkspaceSessionId }
   | {
@@ -141,5 +159,11 @@ export const directoryRequested = (sessionId: WorkspaceSessionId, path: string):
   type: 'repository/directoryRequested',
   sessionId,
   path,
+  requestId: nextRequestId(),
+});
+
+export const gitRefreshRequested = (sessionId: WorkspaceSessionId): Action => ({
+  type: 'git/refreshRequested',
+  sessionId,
   requestId: nextRequestId(),
 });

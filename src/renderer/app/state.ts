@@ -3,6 +3,7 @@ import type { AppError } from '@shared/ipc/result';
 import {
   initialRepositoryState,
   selectRepositoryRows,
+  type GitState,
   type RepositoryRow,
   type RepositoryState,
   type RepositoryView,
@@ -136,5 +137,4 @@ export const selectSelectedPath = (state: AppState): string | null => state.repo
 
 export const selectRepositoryView = (state: AppState): RepositoryView => state.repository.view;
 
-export const selectRootStatus = (state: AppState): string =>
-  state.repository.directories['']?.status ?? 'unloaded';
+export const selectGit = (state: AppState): GitState => state.repository.git;

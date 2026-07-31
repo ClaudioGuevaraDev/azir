@@ -30,7 +30,7 @@ const withRoot = (): RepositoryState =>
   );
 
 describe('opening a workspace', () => {
-  it('loads the root and nothing else', () => {
+  it('loads the root and git status, and nothing below the root', () => {
     const result = repositoryReducer(initialRepositoryState, {
       type: 'workspace/opened',
       requestId: 'r1',
@@ -38,8 +38,11 @@ describe('opening a workspace', () => {
     });
 
     expect(result.state.directories['']).toEqual({ status: 'loading' });
+    // Requested independently: the spec requires that a missing git binary not
+    // disable the file browser, so neither waits for the other.
     expect(result.effects).toEqual([
       { type: 'repository/listDirectory', sessionId: 1, path: '', requestId: 'r1' },
+      { type: 'git/status', sessionId: 1, requestId: 'r1' },
     ]);
   });
 

@@ -1,4 +1,4 @@
-import type { DirectoryEntry, FileKind } from '@shared/ipc/contracts';
+import type { DirectoryEntry, FileKind, GitBranchInfo, GitFileStatus } from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
 import type { RequestId } from './state';
 
@@ -40,9 +40,33 @@ export type DirectoryChildren =
 
 export type RepositoryView = 'tree' | 'changes';
 
+/**
+ * Git's contribution to the projection.
+ *
+ * `unavailable` is distinct from `error`: no git binary at all is a permanent
+ * condition for the session and the UI should stop offering to retry, while a
+ * timeout or a busy index is worth another attempt. The spec is explicit that "a
+ * missing git binary must not disable the file browser", which is why this lives
+ * alongside the tree rather than gating it.
+ */
+export type GitState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'loading' }
+  | {
+      readonly status: 'ready';
+      readonly branch: GitBranchInfo;
+      readonly byPath: Readonly<Record<string, GitFileStatus>>;
+      readonly changed: readonly GitFileStatus[];
+    }
+  | { readonly status: 'unavailable'; readonly error: AppError }
+  | { readonly status: 'error'; readonly error: AppError };
+
 export interface RepositoryState {
   /** Keyed by directory path; the root is the empty string. */
   readonly directories: Readonly<Record<string, DirectoryChildren>>;
+  readonly git: GitState;
+  /** In-flight git refresh, for the same staleness reason as `pending`. */
+  readonly gitRequestId: RequestId | null;
   /**
    * Which directory loads are in flight, keyed by path.
    *
@@ -58,6 +82,8 @@ export interface RepositoryState {
 
 export const initialRepositoryState: RepositoryState = {
   directories: {},
+  git: { status: 'idle' },
+  gitRequestId: null,
   pending: {},
   expanded: {},
   selectedPath: null,
@@ -86,18 +112,95 @@ export interface RepositoryRow {
   /** Lets the row render a spinner, a chevron or an error marker. */
   readonly childrenStatus: DirectoryChildren['status'];
   readonly virtual: boolean;
+  /** Git's view of this exact path, when it has one. */
+  readonly git?: GitFileStatus;
+  /**
+   * True when a collapsed directory contains changes.
+   *
+   * Without this, an agent's edit three levels down is invisible until the user
+   * happens to expand the right folders — which defeats the point of a supervision
+   * tool. It is computed from the change list rather than by walking the tree,
+   * because the tree below a collapsed node has not been read.
+   */
+  readonly containsChanges?: boolean;
 }
 
 const ROOT = '';
 
 /**
- * Flattens the loaded, expanded part of the tree into rows.
+ * Every directory that has a change somewhere beneath it.
+ *
+ * Derived from the flat change list, so it works for parts of the tree that have
+ * never been read.
+ */
+const changedAncestors = (state: RepositoryState): ReadonlySet<string> => {
+  const dirty = new Set<string>();
+  if (state.git.status !== 'ready') {
+    return dirty;
+  }
+  for (const file of state.git.changed) {
+    let parent = parentOf(file.path);
+    // Walks up rather than down, so cost is proportional to the number of changes,
+    // not to the size of the repository.
+    while (parent !== ROOT && !dirty.has(parent)) {
+      dirty.add(parent);
+      parent = parentOf(parent);
+    }
+  }
+  return dirty;
+};
+
+const isDeletion = (status: GitFileStatus): boolean =>
+  status.unstaged === 'deleted' || status.staged === 'deleted';
+
+/**
+ * Deleted files, grouped by the directory they used to live in.
+ *
+ * The spec calls these virtual nodes: git knows about them, the filesystem does not,
+ * and they still have to be reviewable. For a tool whose whole purpose is supervising
+ * an agent, a file the agent deleted is one of the most important things to surface —
+ * and it is precisely the thing a filesystem scan can never report.
+ *
+ * Rename *sources* are deliberately excluded. `git mv a b` reports one change on `b`
+ * carrying `originalPath: a`; adding a second node for `a` would double-count the same
+ * change, and the badge on `b` already says where it came from.
+ */
+const deletionsByParent = (state: RepositoryState): ReadonlyMap<string, readonly FileNode[]> => {
+  const byParent = new Map<string, FileNode[]>();
+  if (state.git.status !== 'ready') {
+    return byParent;
+  }
+
+  for (const file of state.git.changed) {
+    if (!isDeletion(file)) {
+      continue;
+    }
+    const parent = parentOf(file.path);
+    const siblings = byParent.get(parent) ?? [];
+    siblings.push({
+      path: file.path,
+      name: file.path.split('/').pop() ?? file.path,
+      kind: 'file',
+      virtual: true,
+    });
+    byParent.set(parent, siblings);
+  }
+
+  return byParent;
+};
+
+/**
+ * Flattens the loaded, expanded part of the tree into rows, merging git's status in
+ * as it goes.
  *
  * Only expanded directories contribute children, which is what makes the cost
  * proportional to what is visible rather than to the size of the repository.
  */
 export const projectRows = (state: RepositoryState): readonly RepositoryRow[] => {
   const rows: RepositoryRow[] = [];
+  const byPath = state.git.status === 'ready' ? state.git.byPath : undefined;
+  const dirtyDirectories = changedAncestors(state);
+  const deletions = deletionsByParent(state);
 
   const walk = (directoryPath: string, depth: number): void => {
     const children = state.directories[directoryPath];
@@ -105,10 +208,11 @@ export const projectRows = (state: RepositoryState): readonly RepositoryRow[] =>
       return;
     }
 
-    for (const node of children.children) {
+    const emit = (node: FileNode): void => {
       const isDirectory = node.kind === 'directory';
       const expanded = isDirectory && state.expanded[node.path] === true;
       const own = state.directories[node.path];
+      const git = byPath?.[node.path];
 
       rows.push({
         path: node.path,
@@ -118,16 +222,59 @@ export const projectRows = (state: RepositoryState): readonly RepositoryRow[] =>
         expanded,
         childrenStatus: isDirectory ? (own?.status ?? 'unloaded') : 'loaded',
         virtual: node.virtual === true,
+        ...(git === undefined ? {} : { git }),
+        ...(isDirectory && dirtyDirectories.has(node.path) ? { containsChanges: true } : {}),
       });
 
       if (expanded) {
         walk(node.path, depth + 1);
+      }
+    };
+
+    const present = new Set<string>();
+    for (const node of children.children) {
+      present.add(node.path);
+      emit(node);
+    }
+
+    // Appended after the real entries rather than merged into sorted position: the
+    // scanner owns the ordering, and duplicating its comparator here is how the two
+    // would eventually drift apart. Grouping deletions at the end of their folder also
+    // reads better than scattering ghosts through the list.
+    for (const node of deletions.get(directoryPath) ?? []) {
+      // `git rm --cached` leaves the file on disk while marking it deleted in the
+      // index, so it can legitimately already be present.
+      if (!present.has(node.path)) {
+        emit(node);
       }
     }
   };
 
   walk(ROOT, 0);
   return rows;
+};
+
+/**
+ * The `changes` projection: git's change list, as flat rows.
+ *
+ * The same model as the tree, viewed differently — which is the point of combining
+ * the two sources rather than keeping an explorer and a git panel that can disagree.
+ * Deleted files appear here even though the filesystem no longer has them.
+ */
+export const projectChangeRows = (state: RepositoryState): readonly RepositoryRow[] => {
+  if (state.git.status !== 'ready') {
+    return [];
+  }
+  return state.git.changed.map((file) => ({
+    path: file.path,
+    name: file.path,
+    kind: 'file' as const,
+    depth: 0,
+    expanded: false,
+    childrenStatus: 'loaded' as const,
+    virtual: file.staged === 'deleted' || file.unstaged === 'deleted',
+    git: file,
+  }));
 };
 
 /**
@@ -140,15 +287,24 @@ export const projectRows = (state: RepositoryState): readonly RepositoryRow[] =>
  */
 let cachedDirectories: RepositoryState['directories'] | undefined;
 let cachedExpanded: RepositoryState['expanded'] | undefined;
+let cachedGit: RepositoryState['git'] | undefined;
+let cachedView: RepositoryView | undefined;
 let cachedRows: readonly RepositoryRow[] = [];
 
 export const selectRepositoryRows = (state: RepositoryState): readonly RepositoryRow[] => {
-  if (state.directories === cachedDirectories && state.expanded === cachedExpanded) {
+  if (
+    state.directories === cachedDirectories &&
+    state.expanded === cachedExpanded &&
+    state.git === cachedGit &&
+    state.view === cachedView
+  ) {
     return cachedRows;
   }
   cachedDirectories = state.directories;
   cachedExpanded = state.expanded;
-  cachedRows = projectRows(state);
+  cachedGit = state.git;
+  cachedView = state.view;
+  cachedRows = state.view === 'changes' ? projectChangeRows(state) : projectRows(state);
   return cachedRows;
 };
 
@@ -156,6 +312,8 @@ export const selectRepositoryRows = (state: RepositoryState): readonly Repositor
 export const resetRepositoryProjectionCache = (): void => {
   cachedDirectories = undefined;
   cachedExpanded = undefined;
+  cachedGit = undefined;
+  cachedView = undefined;
   cachedRows = [];
 };
 

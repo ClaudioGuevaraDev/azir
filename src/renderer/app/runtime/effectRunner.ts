@@ -72,6 +72,29 @@ export const createEffectRunner = (bridge: AppBridge): EffectRunner => {
         return;
       }
 
+      case 'git/status': {
+        const result = await bridge.git.status({ sessionId: effect.sessionId });
+        if (!result.ok) {
+          // Not a notice: git being unavailable is rendered inside the repository
+          // panel, where it belongs, rather than as a toast the user has to dismiss
+          // on every refresh.
+          dispatch({
+            type: 'git/refreshFailed',
+            sessionId: effect.sessionId,
+            requestId: effect.requestId,
+            error: result.error,
+          });
+          return;
+        }
+        dispatch({
+          type: 'git/refreshed',
+          sessionId: effect.sessionId,
+          requestId: effect.requestId,
+          snapshot: result.value,
+        });
+        return;
+      }
+
       case 'terminal/create': {
         const result = await bridge.terminal.create({
           sessionId: effect.sessionId,

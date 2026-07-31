@@ -1,6 +1,6 @@
 .tree {
   display: grid;
-  grid-template-rows: var(--azir-panel-header-height) 1fr;
+  grid-template-rows: var(--azir-panel-header-height) auto 1fr;
   height: 100%;
   min-height: 0;
   border-right: 1px solid var(--azir-border);
@@ -43,6 +43,49 @@
 
 .tree__refresh:hover {
   color: var(--azir-text);
+}
+
+.tree__git {
+  display: flex;
+  align-items: center;
+  gap: var(--azir-space-3);
+  padding: var(--azir-space-2) var(--azir-space-3);
+  border-bottom: 1px solid var(--azir-border);
+  color: var(--azir-text-dim);
+  font-family: var(--azir-font-mono);
+  font-size: var(--azir-text-xs);
+  white-space: nowrap;
+}
+
+.tree__git[data-state='unavailable'],
+.tree__git[data-state='error'] {
+  color: var(--azir-warning);
+  white-space: normal;
+}
+
+.tree__git-retry {
+  color: var(--azir-accent);
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+.tree__branch {
+  overflow: hidden;
+  color: var(--azir-text);
+  text-overflow: ellipsis;
+}
+
+.tree__git-note,
+.tree__git-count {
+  margin-left: auto;
+}
+
+.tree__ahead {
+  color: var(--azir-added);
+}
+
+.tree__behind {
+  color: var(--azir-warning);
 }
 
 .tree__list {
@@ -88,6 +131,67 @@
 .tree__name {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* A changed file is the thing the user came to look at, so it reads brighter. */
+.tree__name[data-changed='true'] {
+  color: var(--azir-text);
+}
+
+.tree__row[data-virtual='true'] .tree__name {
+  color: var(--azir-text-dim);
+  text-decoration: line-through;
+}
+
+/* Changes hiding inside a collapsed directory. */
+.tree__nested {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--azir-modified);
+}
+
+.tree__badge {
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--azir-space-2);
+  font-weight: 600;
+}
+
+/* A change that exists only in the index is real but already dealt with. */
+.tree__badge[data-staged-only='true'] {
+  opacity: 0.55;
+}
+
+.tree__badge[data-tone='added'] {
+  color: var(--azir-added);
+}
+
+.tree__badge[data-tone='modified'] {
+  color: var(--azir-modified);
+}
+
+.tree__badge[data-tone='deleted'] {
+  color: var(--azir-deleted);
+}
+
+.tree__badge[data-tone='renamed'] {
+  color: var(--azir-renamed);
+}
+
+.tree__badge[data-tone='untracked'] {
+  color: var(--azir-untracked);
+}
+
+.tree__badge[data-tone='conflict'] {
+  color: var(--azir-conflict);
+}
+
+/* In the changes view the row shows a full path, which needs the room. */
+.tree__row[data-kind='file'] .tree__nested + .tree__badge {
+  margin-left: var(--azir-space-2);
 }
 
 .tree__empty {

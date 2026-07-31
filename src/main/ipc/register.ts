@@ -1,6 +1,7 @@
 import { CHANNELS } from '@shared/ipc/channels';
 import {
   createTerminalRequestSchema,
+  gitStatusRequestSchema,
   killTerminalRequestSchema,
   listDirectoryRequestSchema,
   noRequestSchema,
@@ -80,6 +81,18 @@ export const registerIpcHandlers = (context: AppContext): void => {
       return ok({ path: request.path, entries: entries.value });
     },
   );
+
+  // ---- git
+
+  handleResult(CHANNELS.gitStatus, gitStatusRequestSchema, (request) => {
+    const session = context.sessions.require(request.sessionId);
+    if (!session.ok) {
+      return err(session.error.code, session.error.message);
+    }
+    // The root comes from the session, so git can never be pointed at a directory
+    // outside the workspace.
+    return context.git.status(session.value.root);
+  });
 
   // ---- terminal
 

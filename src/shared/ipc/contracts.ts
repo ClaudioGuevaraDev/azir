@@ -143,6 +143,60 @@ export interface ListDirectoryResponse {
   readonly entries: readonly DirectoryEntry[];
 }
 
+// ------------------------------------------------------------------ git:*
+
+/**
+ * What happened to one file, in one of the two places git tracks it.
+ *
+ * Split into `staged` and `unstaged` rather than collapsed into a single status
+ * because a partially staged file is genuinely in two states at once, and the
+ * viewer has to be able to show either side.
+ */
+export type GitChangeKind =
+  | 'added'
+  | 'modified'
+  | 'deleted'
+  | 'renamed'
+  | 'copied'
+  | 'type-changed'
+  | 'untracked'
+  | 'ignored';
+
+export interface GitFileStatus {
+  /** Workspace-relative POSIX path, matching the repository tree's identity. */
+  readonly path: string;
+  /** The change in the index, or null when the index matches HEAD. */
+  readonly staged: GitChangeKind | null;
+  /** The change in the working tree, or null when it matches the index. */
+  readonly unstaged: GitChangeKind | null;
+  /** Where a renamed or copied file came from. */
+  readonly originalPath?: string;
+  /** An unmerged path. Rendered distinctly because it needs a decision, not review. */
+  readonly conflicted: boolean;
+}
+
+export interface GitBranchInfo {
+  /** Null when HEAD is detached. */
+  readonly head: string | null;
+  /** Null in a repository with no commits yet. */
+  readonly commit: string | null;
+  readonly upstream: string | null;
+  readonly ahead: number;
+  readonly behind: number;
+  readonly detached: boolean;
+}
+
+export const gitStatusRequestSchema = z.object({
+  sessionId: z.number().int().nonnegative(),
+});
+
+export type GitStatusRequest = z.infer<typeof gitStatusRequestSchema>;
+
+export interface GitStatusResponse {
+  readonly branch: GitBranchInfo;
+  readonly files: readonly GitFileStatus[];
+}
+
 // ------------------------------------------------------------- terminal:*
 
 /**

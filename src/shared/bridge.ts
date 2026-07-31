@@ -1,6 +1,8 @@
 import type {
   CreateTerminalRequest,
   CreateTerminalResponse,
+  GitStatusRequest,
+  GitStatusResponse,
   KillTerminalRequest,
   ListDirectoryRequest,
   ListDirectoryResponse,
@@ -46,6 +48,14 @@ export interface AppBridge {
 
   readonly files: {
     listDirectory(request: ListDirectoryRequest): Promise<Result<ListDirectoryResponse>>;
+  };
+
+  readonly git: {
+    /**
+     * A failure here is expected and survivable: no git binary, not a repository,
+     * no commits yet. The tree stays fully usable either way (invariant 13).
+     */
+    status(request: GitStatusRequest): Promise<Result<GitStatusResponse>>;
   };
 
   readonly terminal: {

@@ -58,17 +58,26 @@ export const repositoryReducer: SliceReducer<RepositoryState> = (
 ): Reduction<RepositoryState> => {
   switch (action.type) {
     case 'workspace/opened': {
-      // The root is loaded immediately; everything below it waits to be opened.
+      // The root and git status are both requested up front, and independently: the
+      // spec requires that a missing git binary not disable the file browser, so
+      // neither waits for the other.
       return withEffects(
         {
           ...initialRepositoryState,
           directories: { '': { status: 'loading' } },
           pending: { '': action.requestId },
+          git: { status: 'loading' },
+          gitRequestId: action.requestId,
         },
         {
           type: 'repository/listDirectory',
           sessionId: action.info.sessionId,
           path: '',
+          requestId: action.requestId,
+        },
+        {
+          type: 'git/status',
+          sessionId: action.info.sessionId,
           requestId: action.requestId,
         },
       );
@@ -196,6 +205,65 @@ export const repositoryReducer: SliceReducer<RepositoryState> = (
         return idle(state);
       }
       return changed({ ...state, view: action.view });
+    }
+
+    case 'git/refreshRequested': {
+      // The previous snapshot stays visible while refreshing. Blanking the badges on
+      // every watcher tick would make the tree strobe once M5 lands.
+      return withEffects(
+        {
+          ...state,
+          git: state.git.status === 'ready' ? state.git : { status: 'loading' },
+          gitRequestId: action.requestId,
+        },
+        { type: 'git/status', sessionId: action.sessionId, requestId: action.requestId },
+      );
+    }
+
+    case 'git/refreshed': {
+      if (state.gitRequestId !== action.requestId) {
+        return idle(state);
+      }
+
+      // Indexed by destination path only. A rename or copy reports one change whose
+      // `originalPath` names the source: for a rename the source is gone from disk so
+      // there is no row to badge, and for a copy the source is *unchanged* — badging
+      // it would tell the user a file was modified when it was not.
+      const byPath: Record<string, (typeof action.snapshot.files)[number]> = {};
+      for (const file of action.snapshot.files) {
+        byPath[file.path] = file;
+      }
+
+      return changed({
+        ...state,
+        gitRequestId: null,
+        git: {
+          status: 'ready',
+          branch: action.snapshot.branch,
+          byPath,
+          changed: action.snapshot.files,
+        },
+      });
+    }
+
+    case 'git/refreshFailed': {
+      if (state.gitRequestId !== action.requestId) {
+        return idle(state);
+      }
+
+      // `git-missing` and `not-a-repository` are permanent for this workspace, so the
+      // UI stops offering a retry it knows will fail. Everything else — a timeout, a
+      // held index.lock — is transient and stays retryable.
+      const permanent =
+        action.error.code === 'git-missing' || action.error.code === 'not-a-repository';
+
+      return changed({
+        ...state,
+        gitRequestId: null,
+        git: permanent
+          ? { status: 'unavailable', error: action.error }
+          : { status: 'error', error: action.error },
+      });
     }
 
     default:

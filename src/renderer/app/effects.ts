@@ -25,6 +25,11 @@ export type Effect =
       readonly requestId: RequestId;
     }
   | {
+      readonly type: 'git/status';
+      readonly sessionId: WorkspaceSessionId;
+      readonly requestId: RequestId;
+    }
+  | {
       readonly type: 'terminal/create';
       readonly sessionId: WorkspaceSessionId;
       readonly paneId: TerminalPaneId;
@@ -57,6 +62,10 @@ export const effectKey = (effect: Effect): string => {
       // burst are the same work, and issuing both would let the slower one overwrite
       // the faster.
       return `${effect.type}|${effect.sessionId}|${effect.path}`;
+    case 'git/status':
+      // Performance rule 9, at the effect layer. Main's bounded scheduler coalesces
+      // again, which covers refreshes arriving in separate bursts.
+      return `${effect.type}|${effect.sessionId}`;
     case 'terminal/create':
     case 'terminal/kill':
       return `${effect.type}|${effect.sessionId}|${effect.paneId}`;

@@ -17,6 +17,8 @@ export const CHANNELS = {
 
   filesListDirectory: 'files:listDirectory',
 
+  gitStatus: 'git:status',
+
   terminalCreate: 'terminal:create',
   terminalWrite: 'terminal:write',
   terminalResize: 'terminal:resize',

@@ -46,6 +46,10 @@ const bridge: AppBridge = {
     listDirectory: (request) => ipcRenderer.invoke(CHANNELS.filesListDirectory, request),
   },
 
+  git: {
+    status: (request) => ipcRenderer.invoke(CHANNELS.gitStatus, request),
+  },
+
   terminal: {
     create: (request) => ipcRenderer.invoke(CHANNELS.terminalCreate, request),
     // `send`, not `invoke`: there is no reply to wait for, and a round trip per
