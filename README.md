@@ -141,14 +141,22 @@ needs CI with a platform matrix or real hardware.
 | M3 — filesystem and repository tree        | done        |
 | M4 — git status                            | done        |
 | M5 — filesystem watcher                    | done        |
-| M6 — code viewer and diff                  | not started |
+| M6 — code viewer and diff                  | done        |
 | M7 — editing, layout, overlays             | not started |
 | M8 — settings and search                   | not started |
 
-The product's core loop works today: an agent changes files, the workspace notices
-without being asked, and the repository panel shows what moved next to a live
-terminal. What is missing is the middle of the review step — the viewer that lets
-you read the file and its diff, which is M6.
+**The product's loop is complete.** An agent changes files; the workspace notices
+without being asked; the repository panel shows what moved; the viewer shows the
+file and its diff; the terminal is right there to act on it. What remains is
+refinement rather than the core: limited in-place editing, a configurable layout
+engine that degrades as the window shrinks, overlays, settings and search.
+
+The viewer is read-only. Diffs are unified rather than side-by-side because the
+panel shares the window with a tree and a terminal, and a split view in that width
+truncates both sides. There is no syntax highlighting: the spec is explicit that
+Azir is not an IDE, and highlighting means either a grammar engine per language or
+a heuristic that misleads often enough to matter. Colour is spent on the thing that
+carries information — what changed.
 
 The watcher is the piece that makes the loop closed rather than manual. Raw
 filesystem events are coalesced in the main process — by path, behind a trailing

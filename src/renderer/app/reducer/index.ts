@@ -6,6 +6,7 @@ import { combineSlices, type Reduction } from './combine';
 import { noticesReducer } from './notices';
 import { repositoryReducer } from './repository';
 import { terminalsReducer } from './terminals';
+import { viewerReducer } from './viewer';
 import { workspaceReducer } from './workspace';
 
 /**
@@ -18,6 +19,7 @@ import { workspaceReducer } from './workspace';
 const combined = combineSlices<AppState>({
   workspace: workspaceReducer,
   repository: repositoryReducer,
+  viewer: viewerReducer,
   terminals: terminalsReducer,
   notices: noticesReducer,
 });
@@ -45,6 +47,14 @@ const sessionOf = (action: Action): WorkspaceSessionId | undefined => {
     case 'git/refreshed':
     case 'git/refreshFailed':
     case 'fs/changed':
+    case 'viewer/openRequested':
+    case 'viewer/contentLoaded':
+    case 'viewer/contentFailed':
+    case 'viewer/diffLoaded':
+    case 'viewer/diffFailed':
+    case 'viewer/activated':
+    case 'viewer/modeChanged':
+    case 'viewer/diffTargetChanged':
       return action.sessionId;
     default:
       return undefined;

@@ -16,8 +16,10 @@ export const CHANNELS = {
   workspaceClose: 'workspace:close',
 
   filesListDirectory: 'files:listDirectory',
+  filesRead: 'files:read',
 
   gitStatus: 'git:status',
+  gitDiff: 'git:diff',
 
   terminalCreate: 'terminal:create',
   terminalWrite: 'terminal:write',

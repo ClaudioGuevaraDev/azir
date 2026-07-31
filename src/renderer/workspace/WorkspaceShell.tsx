@@ -4,6 +4,7 @@ import { RepositoryPanel } from '../repository/RepositoryPanel';
 import type { TerminalTransport } from '../terminal/controller';
 import type { TerminalRegistry } from '../terminal/registry';
 import { TerminalPanel } from '../terminal/TerminalPanel';
+import { ViewerPanel } from '../viewer/ViewerPanel';
 import './WorkspaceShell.css';
 
 export interface WorkspaceShellProps {
@@ -50,13 +51,21 @@ export const WorkspaceShell = ({
       </header>
 
       {/*
-        Two slots for now, side by side. The layout engine that arranges all three
-        panels by configurable order and arrangement is M7; hard-coding a split here
-        is honest about that rather than pretending the engine exists.
+        The spec's `sidebar-and-stack` arrangement, hard-coded. The layout engine that
+        makes order and arrangement configurable — and degrades to two panels and then to
+        one as the window shrinks — is M7; wiring a fixed split here is honest about that
+        rather than pretending the engine exists.
+
+        This particular arrangement is the useful one for supervision: the tree is a
+        narrow index, the viewer is where reading happens and gets the space, and the
+        terminal sits under it where its output lines up with the file above.
       */}
       <div className="shell__panels" data-testid="workspace-panels">
         <RepositoryPanel sessionId={info.sessionId} />
-        <TerminalPanel sessionId={info.sessionId} registry={registry} transport={transport} />
+        <div className="shell__stack">
+          <ViewerPanel sessionId={info.sessionId} />
+          <TerminalPanel sessionId={info.sessionId} registry={registry} transport={transport} />
+        </div>
       </div>
 
       <footer className="shell__status">

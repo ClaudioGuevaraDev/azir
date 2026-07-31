@@ -1,7 +1,9 @@
 import type {
   CreateTerminalRequest,
   CreateTerminalResponse,
+  FileDiff,
   FsChangeBatch,
+  GitDiffRequest,
   GitStatusRequest,
   GitStatusResponse,
   KillTerminalRequest,
@@ -10,6 +12,8 @@ import type {
   PickFolderResponse,
   PingRequest,
   PingResponse,
+  ReadFileRequest,
+  ReadFileResponse,
   ResizeTerminalRequest,
   TerminalDataEvent,
   TerminalExitEvent,
@@ -49,6 +53,8 @@ export interface AppBridge {
 
   readonly files: {
     listDirectory(request: ListDirectoryRequest): Promise<Result<ListDirectoryResponse>>;
+    /** Refuses a file that is too large or binary, as a `Result` rather than a throw. */
+    read(request: ReadFileRequest): Promise<Result<ReadFileResponse>>;
   };
 
   readonly fs: {
@@ -62,6 +68,8 @@ export interface AppBridge {
      * no commits yet. The tree stays fully usable either way (invariant 13).
      */
     status(request: GitStatusRequest): Promise<Result<GitStatusResponse>>;
+    /** Requested only when a diff is actually on screen — performance rule 5. */
+    diff(request: GitDiffRequest): Promise<Result<FileDiff>>;
   };
 
   readonly terminal: {

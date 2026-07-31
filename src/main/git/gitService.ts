@@ -1,8 +1,9 @@
-import type { GitStatusResponse } from '@shared/ipc/contracts';
+import type { DiffTarget, FileDiff, GitStatusResponse } from '@shared/ipc/contracts';
 import { ok, type Result } from '@shared/ipc/result';
 import { createBoundedScheduler, type BoundedScheduler } from '../scheduler/boundedScheduler';
 import { classifyGitFailure } from './errors';
 import { createGitRunner, type GitRunner } from './gitRunner';
+import { parseDiff } from './parseDiff';
 import { parseStatus } from './parseStatus';
 
 /**
@@ -17,6 +18,7 @@ import { parseStatus } from './parseStatus';
 
 export interface GitService {
   status(root: string): Promise<Result<GitStatusResponse>>;
+  diff(root: string, relativePosix: string, target: DiffTarget): Promise<Result<FileDiff>>;
 }
 
 export interface GitServiceOptions {
@@ -34,6 +36,9 @@ export interface GitServiceOptions {
  * with `node_modules`, and those paths are filtered from the tree anyway. It becomes
  * a setting in M8.
  */
+/** Three lines each side is git's own default and what people expect to read. */
+const DIFF_CONTEXT_LINES = 3;
+
 const STATUS_ARGS: readonly string[] = [
   'status',
   '--porcelain=v2',
@@ -62,6 +67,39 @@ export const createGitService = (options: GitServiceOptions = {}): GitService =>
 
         const parsed = parseStatus(stdout);
         return ok<GitStatusResponse>({ branch: parsed.branch, files: parsed.files });
+      });
+    },
+
+    diff(root, relativePosix, target) {
+      return scheduler.run(`diff:${target}:${root}:${relativePosix}`, async () => {
+        const args = [
+          'diff',
+          // --no-color because the viewer renders its own; --no-ext-diff because a
+          // user-configured external diff tool would produce something unparseable, or
+          // try to open a window.
+          '--no-color',
+          '--no-ext-diff',
+          // A fixed context so the rendered hunks are stable regardless of the user's
+          // diff.context setting.
+          `--unified=${DIFF_CONTEXT_LINES}`,
+          ...(target === 'staged' ? ['--cached'] : []),
+          // `--` separates the pathspec from options, so a file named `--cached` is a
+          // filename rather than a flag.
+          '--',
+          relativePosix,
+        ];
+
+        const result = await runner.run(args, { cwd: root });
+        if (!result.ok) {
+          return result;
+        }
+
+        const { exitCode, stdout, stderr } = result.value;
+        if (exitCode !== 0) {
+          return classifyGitFailure(exitCode, stderr);
+        }
+
+        return ok(parseDiff(stdout, { path: relativePosix, target }));
       });
     },
   };

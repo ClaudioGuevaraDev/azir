@@ -92,6 +92,8 @@
 
   --azir-panel-header-height: 30px;
   --azir-statusbar-height: 24px;
+  /* The virtual lists need this as a number too; see CodeView and DiffView. */
+  --azir-code-line-height: 18px;
 
   --azir-transition-fast: 90ms ease-out;
 }

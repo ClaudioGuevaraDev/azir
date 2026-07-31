@@ -1,5 +1,11 @@
-import type { TerminalPaneId, WorkspaceInfo, WorkspaceSessionId } from '@shared/ipc/contracts';
+import type {
+  GitFileStatus,
+  TerminalPaneId,
+  WorkspaceInfo,
+  WorkspaceSessionId,
+} from '@shared/ipc/contracts';
 import type { AppError } from '@shared/ipc/result';
+import { activeTab, initialViewerState, type ViewerState, type ViewerTab } from './viewer';
 import {
   initialRepositoryState,
   selectRepositoryRows,
@@ -96,6 +102,7 @@ export interface TerminalsState {
 export interface AppState {
   readonly workspace: WorkspaceState;
   readonly repository: RepositoryState;
+  readonly viewer: ViewerState;
   readonly terminals: TerminalsState;
   readonly notices: NoticesState;
 }
@@ -103,6 +110,7 @@ export interface AppState {
 export const initialState: AppState = {
   workspace: { status: 'empty' },
   repository: initialRepositoryState,
+  viewer: initialViewerState,
   terminals: { panes: [], activePaneId: null, nextPaneSeq: 1 },
   notices: { items: [], nextId: 1 },
 };
@@ -138,3 +146,19 @@ export const selectSelectedPath = (state: AppState): string | null => state.repo
 export const selectRepositoryView = (state: AppState): RepositoryView => state.repository.view;
 
 export const selectGit = (state: AppState): GitState => state.repository.git;
+
+export const selectViewerTabs = (state: AppState): readonly ViewerTab[] => state.viewer.tabs;
+
+export const selectActiveTab = (state: AppState): ViewerTab | undefined => activeTab(state.viewer);
+
+/**
+ * Git's view of the active tab's path, so the viewer can tell an untracked file from a
+ * modified one without asking git again.
+ */
+export const selectActiveTabGitStatus = (state: AppState): GitFileStatus | undefined => {
+  const tab = activeTab(state.viewer);
+  if (!tab || state.repository.git.status !== 'ready') {
+    return undefined;
+  }
+  return state.repository.git.byPath[tab.path];
+};

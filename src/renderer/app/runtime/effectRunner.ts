@@ -95,6 +95,57 @@ export const createEffectRunner = (bridge: AppBridge): EffectRunner => {
         return;
       }
 
+      case 'viewer/readFile': {
+        const result = await bridge.files.read({
+          sessionId: effect.sessionId,
+          path: effect.path,
+        });
+        if (!result.ok) {
+          dispatch({
+            type: 'viewer/contentFailed',
+            sessionId: effect.sessionId,
+            path: effect.path,
+            requestId: effect.requestId,
+            error: result.error,
+          });
+          return;
+        }
+        dispatch({
+          type: 'viewer/contentLoaded',
+          sessionId: effect.sessionId,
+          path: effect.path,
+          requestId: effect.requestId,
+          response: result.value,
+        });
+        return;
+      }
+
+      case 'viewer/readDiff': {
+        const result = await bridge.git.diff({
+          sessionId: effect.sessionId,
+          path: effect.path,
+          target: effect.target,
+        });
+        if (!result.ok) {
+          dispatch({
+            type: 'viewer/diffFailed',
+            sessionId: effect.sessionId,
+            path: effect.path,
+            requestId: effect.requestId,
+            error: result.error,
+          });
+          return;
+        }
+        dispatch({
+          type: 'viewer/diffLoaded',
+          sessionId: effect.sessionId,
+          path: effect.path,
+          requestId: effect.requestId,
+          diff: result.value,
+        });
+        return;
+      }
+
       case 'terminal/create': {
         const result = await bridge.terminal.create({
           sessionId: effect.sessionId,

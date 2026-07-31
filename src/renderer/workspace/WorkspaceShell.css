@@ -63,6 +63,18 @@
   min-height: 0;
 }
 
+/* Viewer above, terminal below: the reading area gets the space it needs. */
+.shell__stack {
+  display: grid;
+  grid-template-rows: 1fr minmax(120px, 38%);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.shell__stack > * + * {
+  border-top: 1px solid var(--azir-border);
+}
+
 .shell__status {
   display: flex;
   align-items: center;

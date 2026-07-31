@@ -1,4 +1,4 @@
-import type { TerminalPaneId, WorkspaceSessionId } from '@shared/ipc/contracts';
+import type { DiffTarget, TerminalPaneId, WorkspaceSessionId } from '@shared/ipc/contracts';
 import type { RequestId } from './state';
 
 /**
@@ -27,6 +27,19 @@ export type Effect =
   | {
       readonly type: 'git/status';
       readonly sessionId: WorkspaceSessionId;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'viewer/readFile';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'viewer/readDiff';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly target: DiffTarget;
       readonly requestId: RequestId;
     }
   | {
@@ -66,6 +79,12 @@ export const effectKey = (effect: Effect): string => {
       // Performance rule 9, at the effect layer. Main's bounded scheduler coalesces
       // again, which covers refreshes arriving in separate bursts.
       return `${effect.type}|${effect.sessionId}`;
+    case 'viewer/readFile':
+      return `${effect.type}|${effect.sessionId}|${effect.path}`;
+    case 'viewer/readDiff':
+      // The target is part of the key: the staged and worktree diffs of the same file
+      // are different content, and collapsing them would show one for the other.
+      return `${effect.type}|${effect.sessionId}|${effect.target}|${effect.path}`;
     case 'terminal/create':
     case 'terminal/kill':
       return `${effect.type}|${effect.sessionId}|${effect.paneId}`;

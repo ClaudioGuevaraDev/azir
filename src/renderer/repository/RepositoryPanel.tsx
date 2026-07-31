@@ -1,6 +1,11 @@
 import { memo, useCallback } from 'react';
 import type { WorkspaceSessionId } from '@shared/ipc/contracts';
-import { directoryRequested, directoryToggled, gitRefreshRequested } from '../app/actions';
+import {
+  directoryRequested,
+  directoryToggled,
+  fileOpenRequested,
+  gitRefreshRequested,
+} from '../app/actions';
 import { useAppState, useDispatch } from '../app/react';
 import type { GitState, RepositoryRow } from '../app/repository';
 import { selectGit, selectRepositoryView, selectRows, selectSelectedPath } from '../app/state';
@@ -126,6 +131,13 @@ export const RepositoryPanel = memo(({ sessionId }: RepositoryPanelProps): React
             dispatch({ type: 'repository/selected', path: row.path });
             if (row.kind === 'directory') {
               dispatch(directoryToggled(sessionId, row.path));
+              return;
+            }
+            // A deleted file has no contents to read; the diff is where it is reviewable,
+            // and that arrives with editing in M7. Opening it would show an error where a
+            // click should do nothing surprising.
+            if (!row.virtual) {
+              dispatch(fileOpenRequested(sessionId, row.path));
             }
           }}
         >

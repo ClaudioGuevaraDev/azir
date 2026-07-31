@@ -143,6 +143,33 @@ export interface ListDirectoryResponse {
   readonly entries: readonly DirectoryEntry[];
 }
 
+export const readFileRequestSchema = z.object({
+  sessionId: z.number().int().nonnegative(),
+  path: relativePathSchema,
+});
+
+export type ReadFileRequest = z.infer<typeof readFileRequestSchema>;
+
+/**
+ * How the file's line endings were stored.
+ *
+ * Recorded rather than normalised away because a viewer that silently rewrote CRLF to
+ * LF would, the moment editing lands in M7, turn a one-line change into a whole-file
+ * diff.
+ */
+export type Eol = 'lf' | 'crlf' | 'mixed';
+
+export interface ReadFileResponse {
+  /** Echoed so the reducer can route the response to the right tab. */
+  readonly path: string;
+  /** Decoded text, with any byte-order mark removed. */
+  readonly content: string;
+  readonly eol: Eol;
+  /** True when a BOM was present, so a future save can preserve it. */
+  readonly hadBom: boolean;
+  readonly byteSize: number;
+}
+
 // ------------------------------------------------------------------ git:*
 
 /**
@@ -195,6 +222,55 @@ export type GitStatusRequest = z.infer<typeof gitStatusRequestSchema>;
 export interface GitStatusResponse {
   readonly branch: GitBranchInfo;
   readonly files: readonly GitFileStatus[];
+}
+
+/**
+ * Which side of the index to diff against.
+ *
+ * The spec's `GitDiffRequest` has no such discriminator, but a partially staged file is
+ * genuinely in two states at once and "the diff" is ambiguous for it. `worktree` is
+ * what the user almost always means — what changed and is not yet staged — so it is the
+ * default.
+ */
+export type DiffTarget = 'worktree' | 'staged';
+
+export const gitDiffRequestSchema = z.object({
+  sessionId: z.number().int().nonnegative(),
+  path: relativePathSchema,
+  target: z.enum(['worktree', 'staged']).default('worktree'),
+});
+
+export type GitDiffRequest = z.input<typeof gitDiffRequestSchema>;
+
+export type DiffLineKind = 'context' | 'add' | 'remove';
+
+export interface DiffLine {
+  readonly kind: DiffLineKind;
+  readonly text: string;
+  /** Line number on the old side, or null for an addition. */
+  readonly oldNumber: number | null;
+  /** Line number on the new side, or null for a removal. */
+  readonly newNumber: number | null;
+  /** The file ended here without a trailing newline. */
+  readonly noNewline?: boolean;
+}
+
+export interface DiffHunk {
+  /** The trailing context git puts after the `@@` markers, usually a function name. */
+  readonly heading: string;
+  readonly oldStart: number;
+  readonly oldLines: number;
+  readonly newStart: number;
+  readonly newLines: number;
+  readonly lines: readonly DiffLine[];
+}
+
+export interface FileDiff {
+  readonly path: string;
+  readonly target: DiffTarget;
+  /** git refused to diff the contents; there is nothing to render line by line. */
+  readonly binary: boolean;
+  readonly hunks: readonly DiffHunk[];
 }
 
 // ------------------------------------------------------------------- fs:*

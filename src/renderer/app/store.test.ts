@@ -3,6 +3,7 @@ import type { Action } from './actions';
 import type { Effect } from './effects';
 import type { Reduction } from './reducer/combine';
 import { initialRepositoryState } from './repository';
+import { initialViewerState } from './viewer';
 import { createStore, type Dispatch } from './store';
 import type { AppState } from './state';
 
@@ -15,6 +16,7 @@ import type { AppState } from './state';
 const stateWith = (nextId: number): AppState => ({
   workspace: { status: 'empty' },
   repository: initialRepositoryState,
+  viewer: initialViewerState,
   terminals: { panes: [], activePaneId: null, nextPaneSeq: 1 },
   notices: { items: [], nextId },
 });

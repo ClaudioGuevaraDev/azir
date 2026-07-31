@@ -44,6 +44,7 @@ const bridge: AppBridge = {
 
   files: {
     listDirectory: (request) => ipcRenderer.invoke(CHANNELS.filesListDirectory, request),
+    read: (request) => ipcRenderer.invoke(CHANNELS.filesRead, request),
   },
 
   fs: {
@@ -52,6 +53,7 @@ const bridge: AppBridge = {
 
   git: {
     status: (request) => ipcRenderer.invoke(CHANNELS.gitStatus, request),
+    diff: (request) => ipcRenderer.invoke(CHANNELS.gitDiff, request),
   },
 
   terminal: {

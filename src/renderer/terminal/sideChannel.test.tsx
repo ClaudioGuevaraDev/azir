@@ -4,6 +4,7 @@ import type { AppBridge } from '@shared/bridge';
 import type { TerminalDataEvent, TerminalExitEvent } from '@shared/ipc/contracts';
 import { StoreProvider, useAppState } from '../app/react';
 import { initialRepositoryState } from '../app/repository';
+import { initialViewerState } from '../app/viewer';
 import { startEventPump } from '../app/runtime/eventPump';
 import { createStore, type Store } from '../app/store';
 import { selectPanes, type AppState, type TerminalPaneState } from '../app/state';
@@ -53,6 +54,7 @@ const openWorkspaceState = (activePaneId: string | null): AppState => {
       info: { sessionId: 1, root: '/work/repo', name: 'repo' },
     },
     repository: initialRepositoryState,
+    viewer: initialViewerState,
     terminals: { panes: [pane], activePaneId, nextPaneSeq: 2 },
     notices: { items: [], nextId: 1 },
   };

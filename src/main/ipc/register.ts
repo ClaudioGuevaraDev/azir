@@ -1,11 +1,13 @@
 import { CHANNELS } from '@shared/ipc/channels';
 import {
   createTerminalRequestSchema,
+  gitDiffRequestSchema,
   gitStatusRequestSchema,
   killTerminalRequestSchema,
   listDirectoryRequestSchema,
   noRequestSchema,
   pingRequestSchema,
+  readFileRequestSchema,
   resizeTerminalRequestSchema,
   workspaceCloseRequestSchema,
   workspaceOpenRequestSchema,
@@ -14,6 +16,7 @@ import {
   type ListDirectoryResponse,
   type PickFolderResponse,
   type PingResponse,
+  type ReadFileResponse,
   type WorkspaceCloseResponse,
 } from '@shared/ipc/contracts';
 import { err, ok, type Result } from '@shared/ipc/result';
@@ -90,7 +93,33 @@ export const registerIpcHandlers = (context: AppContext): void => {
     },
   );
 
+  handleResult(
+    CHANNELS.filesRead,
+    readFileRequestSchema,
+    async (request): Promise<Result<ReadFileResponse>> => {
+      const absolute = context.sessions.resolve(request.sessionId, request.path);
+      if (!absolute.ok) {
+        return err(absolute.error.code, absolute.error.message);
+      }
+      return context.files.readFile(absolute.value, request.path);
+    },
+  );
+
   // ---- git
+
+  handleResult(CHANNELS.gitDiff, gitDiffRequestSchema, async (request) => {
+    const session = context.sessions.require(request.sessionId);
+    if (!session.ok) {
+      return err(session.error.code, session.error.message);
+    }
+    // Resolved even though git receives the relative path, so a traversal is refused
+    // before a pathspec ever reaches the process.
+    const inside = context.sessions.resolve(request.sessionId, request.path);
+    if (!inside.ok) {
+      return err(inside.error.code, inside.error.message);
+    }
+    return context.git.diff(session.value.root, request.path, request.target ?? 'worktree');
+  });
 
   handleResult(CHANNELS.gitStatus, gitStatusRequestSchema, (request) => {
     const session = context.sessions.require(request.sessionId);

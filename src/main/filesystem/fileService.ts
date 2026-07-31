@@ -1,7 +1,7 @@
-import { readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { isIgnoredPath } from '@shared/constants/ignore';
-import type { DirectoryEntry } from '@shared/ipc/contracts';
+import type { DirectoryEntry, Eol, ReadFileResponse } from '@shared/ipc/contracts';
 import { describeError, err, ok, type Result } from '@shared/ipc/result';
 
 /**
@@ -29,6 +29,8 @@ export interface FileService {
    * their own stable identity.
    */
   listDirectory(absolutePath: string, relativePosix: string): Promise<Result<DirectoryEntry[]>>;
+  /** Reads one file as text, refusing anything the viewer cannot usefully show. */
+  readFile(absolutePath: string, relativePosix: string): Promise<Result<ReadFileResponse>>;
 }
 
 export interface RawEntry {
@@ -42,7 +44,31 @@ export interface FileServiceOptions {
   /** Injected so tests need no real directories. */
   readonly readDirectory?: (absolutePath: string) => Promise<RawEntry[]>;
   readonly isDirectoryTarget?: (absolutePath: string) => Promise<boolean>;
+  readonly readFileBytes?: (absolutePath: string) => Promise<Buffer>;
+  readonly statPath?: (absolutePath: string) => Promise<{ size: number; isFile: boolean }>;
+  /** Files above this many bytes are refused rather than loaded. */
+  readonly maxFileBytes?: number;
 }
+
+/**
+ * 2 MB.
+ *
+ * The spec requires large files to be rejected or to need explicit confirmation. The
+ * limit is about the renderer, not the disk: a text file this size is already tens of
+ * thousands of lines, and the cost that hurts is the decoded string plus a line array
+ * plus React's view of it. A minified bundle or a checked-in dataset is the realistic
+ * case, and neither is something a person reviews line by line.
+ */
+const DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024;
+
+/**
+ * How much of a file to inspect when deciding whether it is binary.
+ *
+ * Matches git's own heuristic: a NUL byte near the start means "not text". Reading only
+ * the head would need a file handle and a partial read; since the whole file is already
+ * bounded by the size guard, scanning a prefix of the buffer is simpler and equivalent.
+ */
+const BINARY_SNIFF_BYTES = 8000;
 
 const defaultReadDirectory = async (absolutePath: string): Promise<RawEntry[]> => {
   const dirents = await readdir(absolutePath, { withFileTypes: true });
@@ -102,11 +128,92 @@ const classify = (error: unknown): ReturnType<typeof err> => {
   return err('internal', 'That folder could not be read.', detail);
 };
 
+const BOM = '﻿';
+
+/** LF, CRLF, or a file that contains both. */
+const detectEol = (text: string): Eol => {
+  const crlf = (text.match(/\r\n/g) ?? []).length;
+  if (crlf === 0) {
+    return 'lf';
+  }
+  // Counting bare LFs means counting the ones not preceded by CR.
+  const lf = (text.match(/(?<!\r)\n/g) ?? []).length;
+  return lf === 0 ? 'crlf' : 'mixed';
+};
+
+const looksBinary = (bytes: Buffer): boolean => {
+  const limit = Math.min(bytes.length, BINARY_SNIFF_BYTES);
+  for (let index = 0; index < limit; index += 1) {
+    if (bytes[index] === 0) {
+      return true;
+    }
+  }
+  return false;
+};
+
 export const createFileService = (options: FileServiceOptions = {}): FileService => {
   const readDirectory = options.readDirectory ?? defaultReadDirectory;
   const isDirectoryTarget = options.isDirectoryTarget ?? defaultIsDirectoryTarget;
+  const readFileBytes = options.readFileBytes ?? ((target) => readFile(target));
+  const statPath =
+    options.statPath ??
+    (async (target) => {
+      const stats = await stat(target);
+      return { size: stats.size, isFile: stats.isFile() };
+    });
+  const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
 
   return {
+    async readFile(absolutePath, relativePosix) {
+      // Statted first so an oversized file is refused without ever being read into
+      // memory — reading it and then rejecting would defeat the point of the guard.
+      let info: { size: number; isFile: boolean };
+      try {
+        info = await statPath(absolutePath);
+      } catch (error) {
+        return classify(error);
+      }
+
+      if (!info.isFile) {
+        return err('not-a-file', 'That path is not a file.');
+      }
+
+      if (info.size > maxFileBytes) {
+        return err(
+          'too-large',
+          `That file is ${Math.round(info.size / 1024)} KB, above the ${Math.round(
+            maxFileBytes / 1024,
+          )} KB the viewer will load.`,
+        );
+      }
+
+      let bytes: Buffer;
+      try {
+        bytes = await readFileBytes(absolutePath);
+      } catch (error) {
+        return classify(error);
+      }
+
+      if (looksBinary(bytes)) {
+        // Reported as a state rather than rendered as mojibake: the spec lists binary
+        // content among the expected failures, and a viewer full of replacement
+        // characters is worse than an honest message.
+        return err('binary-content', 'That file is binary and cannot be shown as text.');
+      }
+
+      const decoded = bytes.toString('utf8');
+      const hadBom = decoded.startsWith(BOM);
+      const content = hadBom ? decoded.slice(BOM.length) : decoded;
+
+      return ok({
+        path: relativePosix,
+        content,
+        eol: detectEol(content),
+        hadBom,
+        byteSize: info.size,
+      });
+    },
+
     async listDirectory(absolutePath, relativePosix) {
       let raw: RawEntry[];
       try {

@@ -9,6 +9,16 @@ export interface VirtualListProps<T> {
   readonly testId?: string;
   /** Rows rendered beyond the viewport, so a fast scroll does not show gaps. */
   readonly overscan?: number;
+  /**
+   * Scroll offset to restore on mount.
+   *
+   * The viewer keeps one per mode so switching between code and diff and back does not
+   * lose the reader's place — the two have unrelated line counts, so a single shared
+   * offset would land somewhere arbitrary.
+   */
+  readonly initialTop?: number;
+  /** Reported so the owner can persist the offset. */
+  readonly onScrollTop?: (top: number) => void;
 }
 
 /**
@@ -32,9 +42,11 @@ export const VirtualList = <T,>({
   className,
   testId,
   overscan = 8,
+  initialTop = 0,
+  onScrollTop,
 }: VirtualListProps<T>): React.JSX.Element => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [scrollTop, setScrollTop] = useState(0);
+  const [scrollTop, setScrollTop] = useState(initialTop);
   const [viewportHeight, setViewportHeight] = useState(0);
 
   useEffect(() => {
@@ -54,9 +66,23 @@ export const VirtualList = <T,>({
     };
   }, []);
 
-  const onScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(event.currentTarget.scrollTop);
+  // Applied once on mount rather than kept in sync with the prop: after that the DOM is
+  // the authority, and writing `scrollTop` on every render would fight the user's wheel.
+  useEffect(() => {
+    if (initialTop > 0 && viewportRef.current) {
+      viewportRef.current.scrollTop = initialTop;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const onScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const { scrollTop: top } = event.currentTarget;
+      setScrollTop(top);
+      onScrollTop?.(top);
+    },
+    [onScrollTop],
+  );
 
   const total = items.length;
   const first = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);

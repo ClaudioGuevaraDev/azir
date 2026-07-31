@@ -34,6 +34,8 @@ const changed = (
   batch: fsBatch,
   gitRequestId: 'rg',
   directoryRequestIds,
+  viewerContentRequestId: 'rvc',
+  viewerDiffRequestId: 'rvd',
 });
 
 const run = (state: RepositoryState, ...actions: Action[]): RepositoryState =>

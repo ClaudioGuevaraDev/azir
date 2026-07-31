@@ -1,7 +1,10 @@
 import type {
+  DiffTarget,
   DirectoryEntry,
+  FileDiff,
   FsChangeBatch,
   GitStatusResponse,
+  ReadFileResponse,
   TerminalPaneId,
   WorkspaceInfo,
   WorkspaceSessionId,
@@ -10,6 +13,7 @@ import type { AppError } from '@shared/ipc/result';
 import type { RepositoryView } from './repository';
 import { nextRequestId } from './runtime/requestIds';
 import type { RequestId, Severity } from './state';
+import type { ViewerMode } from './viewer';
 
 /**
  * Actions describe user intent or completed external work.
@@ -91,6 +95,9 @@ export type Action =
       readonly gitRequestId: RequestId;
       /** One id per directory the reducer might reload, keyed by path. */
       readonly directoryRequestIds: Readonly<Record<string, RequestId>>;
+      /** For reloading the active viewer tab, of which there is at most one. */
+      readonly viewerContentRequestId: RequestId;
+      readonly viewerDiffRequestId: RequestId;
     }
   | {
       readonly type: 'git/refreshRequested';
@@ -108,6 +115,69 @@ export type Action =
       readonly sessionId: WorkspaceSessionId;
       readonly requestId: RequestId;
       readonly error: AppError;
+    }
+  // ---- viewer
+  | {
+      readonly type: 'viewer/openRequested';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'viewer/contentLoaded';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+      readonly response: ReadFileResponse;
+    }
+  | {
+      readonly type: 'viewer/contentFailed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+      readonly error: AppError;
+    }
+  | {
+      readonly type: 'viewer/diffLoaded';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+      readonly diff: FileDiff;
+    }
+  | {
+      readonly type: 'viewer/diffFailed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly requestId: RequestId;
+      readonly error: AppError;
+    }
+  | {
+      readonly type: 'viewer/activated';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly contentRequestId: RequestId;
+      readonly diffRequestId: RequestId;
+    }
+  | { readonly type: 'viewer/closed'; readonly path: string }
+  | {
+      readonly type: 'viewer/modeChanged';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly mode: ViewerMode;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'viewer/diffTargetChanged';
+      readonly sessionId: WorkspaceSessionId;
+      readonly path: string;
+      readonly target: DiffTarget;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'viewer/scrolled';
+      readonly path: string;
+      readonly mode: ViewerMode;
+      readonly top: number;
     }
   // ---- terminals
   | { readonly type: 'terminal/createRequested'; readonly sessionId: WorkspaceSessionId }
@@ -180,5 +250,48 @@ export const directoryRequested = (sessionId: WorkspaceSessionId, path: string):
 export const gitRefreshRequested = (sessionId: WorkspaceSessionId): Action => ({
   type: 'git/refreshRequested',
   sessionId,
+  requestId: nextRequestId(),
+});
+
+export const fileOpenRequested = (sessionId: WorkspaceSessionId, path: string): Action => ({
+  type: 'viewer/openRequested',
+  sessionId,
+  path,
+  requestId: nextRequestId(),
+});
+
+/**
+ * Activating a tab may need to reload both its content and its diff, and the reducer
+ * cannot mint ids — so both are minted here whether or not they end up used.
+ */
+export const tabActivated = (sessionId: WorkspaceSessionId, path: string): Action => ({
+  type: 'viewer/activated',
+  sessionId,
+  path,
+  contentRequestId: nextRequestId(),
+  diffRequestId: nextRequestId(),
+});
+
+export const viewerModeChanged = (
+  sessionId: WorkspaceSessionId,
+  path: string,
+  mode: ViewerMode,
+): Action => ({
+  type: 'viewer/modeChanged',
+  sessionId,
+  path,
+  mode,
+  requestId: nextRequestId(),
+});
+
+export const diffTargetChanged = (
+  sessionId: WorkspaceSessionId,
+  path: string,
+  target: DiffTarget,
+): Action => ({
+  type: 'viewer/diffTargetChanged',
+  sessionId,
+  path,
+  target,
   requestId: nextRequestId(),
 });

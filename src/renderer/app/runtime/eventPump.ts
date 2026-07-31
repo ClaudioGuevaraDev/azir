@@ -102,6 +102,8 @@ export const startEventPump = (options: EventPumpOptions): EventPump => {
         batch,
         gitRequestId: nextRequestId(),
         directoryRequestIds,
+        viewerContentRequestId: nextRequestId(),
+        viewerDiffRequestId: nextRequestId(),
       });
     }),
   );
