@@ -17,4 +17,4 @@
 *.exe binary
 
 # Generated; keep it out of diffs and merge conflicts.
-package-lock.json -diff linguist-generated
+pnpm-lock.yaml -diff linguist-generated

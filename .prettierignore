@@ -5,4 +5,9 @@ release/
 coverage/
 test-results/
 playwright-report/
-package-lock.json
+pnpm-lock.yaml
+
+# Vendored agent skills, formatted by whoever wrote them upstream. Reformatting
+# them would produce a diff against the source recorded in skills-lock.json.
+.agents/
+.claude/

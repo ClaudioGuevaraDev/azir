@@ -1,0 +1,48 @@
+# pnpm's project configuration.
+#
+# It lives here and not in `.npmrc` because pnpm 11 stopped reading settings from that file —
+# only auth and registry are still honoured there. A line like `node-linker=hoisted` in
+# `.npmrc` is ignored *silently*, which is the worst kind of failure: config that looks
+# authoritative and governs nothing. This repository therefore has no `.npmrc` at all.
+#
+# There is no `packages:` key: this is not a monorepo. In pnpm 11 this file is simply where a
+# single project's settings go.
+
+# A flat node_modules, exactly like npm's.
+#
+# Three consumers resolve by layout rather than by package name, and each would break
+# differently under the default isolated linker:
+#
+#   - electron-builder: `asarUnpack: ['**/node_modules/node-pty/**']` is a literal glob
+#     (electron-builder.yml). Under the isolated linker `node_modules/node-pty` is a symlink
+#     into `.pnpm`, and the native addon is what must end up outside the archive.
+#   - playwright-core: `require("electron/index.js")` from its own directory, because
+#     `e2e/support.ts` deliberately passes no `executablePath`.
+#   - node-pty: `require('../prebuilds/win32-x64/pty.node')` relative to its own `lib/`.
+#
+# The strictness of the isolated linker is given up knowingly — an undeclared dependency still
+# resolves here. What is kept is the shared store, the install speed and a deterministic
+# lockfile. On Windows there is a second benefit: no deep `.pnpm/<pkg>@<version>/node_modules/...`
+# paths pressing against MAX_PATH.
+#
+# README.md's rule for this project is "packaging can break what dev proves works". Preserving
+# the layout removes that entire class of failure rather than one instance of it.
+nodeLinker: hoisted
+
+# Install scripts are denied one by one — the same policy the `allowScripts` field in
+# package.json expresses for npm 12, restated in pnpm's own mechanism. Both must exist while
+# both package managers can install this project.
+#
+#   - node-pty ships Node-API prebuilds in its tarball, so nothing needs compiling; its
+#     postinstall would only copy conpty.dll into build/Release.
+#   - esbuild's binary comes from @esbuild/win32-x64; its install script creates nothing here.
+#   - electron-winstaller's install script picks a 7-Zip arch for the squirrel target, which
+#     this project does not build.
+#
+# `strictDepBuilds` defaults to true in pnpm 11, so a *new* dependency carrying an install
+# script aborts the install instead of being skipped quietly. That is the review step, made
+# mandatory rather than remembered.
+allowBuilds:
+  node-pty: false
+  esbuild: false
+  electron-winstaller: false

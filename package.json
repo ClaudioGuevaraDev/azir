@@ -1,6 +1,6 @@
 {
   "name": "azir",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Desktop supervision tool for software agents",
   "license": "MIT",
@@ -11,14 +11,16 @@
   },
   "main": "./out/main/index.js",
   "type": "commonjs",
+  "packageManager": "pnpm@11.17.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13",
+    "pnpm": ">=11"
   },
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "npm run typecheck && electron-vite build",
+    "build": "pnpm run typecheck && electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "npm run typecheck:main && npm run typecheck:preload && npm run typecheck:renderer && npm run typecheck:tooling",
+    "typecheck": "pnpm run typecheck:main && pnpm run typecheck:preload && pnpm run typecheck:renderer && pnpm run typecheck:tooling",
     "typecheck:main": "tsc --noEmit --composite false -p tsconfig.main.json",
     "typecheck:preload": "tsc --noEmit --composite false -p tsconfig.preload.json",
     "typecheck:renderer": "tsc --noEmit --composite false -p tsconfig.renderer.json",
@@ -31,8 +33,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "electron-vite build && playwright test",
-    "dist": "npm run build && electron-builder --publish never",
-    "dist:dir": "npm run build && electron-builder --dir --publish never",
+    "dist": "pnpm run build && electron-builder --publish never",
+    "dist:dir": "pnpm run build && electron-builder --dir --publish never",
     "postinstall": "install-electron"
   },
   "dependencies": {
