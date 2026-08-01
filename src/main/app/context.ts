@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { CHANNELS } from '@shared/ipc/channels';
 import { app } from 'electron';
+import { createSearchService, type SearchService } from '../search/searchService';
 import { createSettingsStore, type SettingsStore } from '../settings/settingsStore';
 import { createDialogService, type DialogService } from './dialogs';
 import { createQuitGuard, type QuitGuard } from './quitGuard';
@@ -26,6 +27,7 @@ export interface AppContext {
   readonly git: GitService;
   readonly terminals: TerminalManager;
   readonly watcher: WatcherService;
+  readonly search: SearchService;
   readonly renderer: RendererChannel;
   readonly quitGuard: QuitGuard;
   readonly settings: SettingsStore;
@@ -50,11 +52,30 @@ export const createAppContext = (overrides: AppContextOverrides = {}): AppContex
       },
     });
 
+  const search =
+    overrides.search ??
+    createSearchService({
+      emitIndex: (event) => {
+        renderer.send(CHANNELS.eventSearchIndex, event);
+      },
+      emitDelta: (event) => {
+        renderer.send(CHANNELS.eventSearchIndexDelta, event);
+      },
+    });
+
   const watcher =
     overrides.watcher ??
     createWatcherService({
       emit: (batch) => {
         renderer.send(CHANNELS.eventFsChanged, batch);
+      },
+      // The index tracks what an agent is doing, from the same events the panel does. Only file
+      // adds and removals matter: a directory is not a searchable target, and a content change
+      // does not alter which paths exist.
+      onRawEvent: (sessionId, kind, relativePosix) => {
+        if (kind === 'add' || kind === 'unlink') {
+          search.noteChange(sessionId, kind, relativePosix);
+        }
       },
       onFailure: (_sessionId, detail) => {
         // Logged, not surfaced as an error state: the spec requires that a watcher
@@ -70,6 +91,7 @@ export const createAppContext = (overrides: AppContextOverrides = {}): AppContex
   sessions.onDispose((session) => {
     terminals.killSession(session.id);
     watcher.stop(session.id);
+    search.stop(session.id);
   });
 
   return {
@@ -79,6 +101,7 @@ export const createAppContext = (overrides: AppContextOverrides = {}): AppContex
     git: overrides.git ?? createGitService(),
     terminals,
     watcher,
+    search,
     renderer,
     quitGuard: overrides.quitGuard ?? createQuitGuard({ renderer }),
     settings:

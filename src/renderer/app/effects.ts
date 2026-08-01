@@ -57,6 +57,12 @@ export type Effect =
       readonly hadBom: boolean;
       readonly requestId: RequestId;
     }
+  | {
+      readonly type: 'search/content';
+      readonly sessionId: WorkspaceSessionId;
+      readonly query: string;
+      readonly requestId: RequestId;
+    }
   | { readonly type: 'settings/load' }
   /**
    * A patch of whole groups, never the full document.
@@ -116,6 +122,10 @@ export const effectKey = (effect: Effect): string => {
       // Keyed by request id as well, so two saves of the same file in one burst are not
       // collapsed into one — the second may carry newer content. Main serialises them.
       return `${effect.type}|${effect.sessionId}|${effect.path}|${effect.requestId}`;
+    case 'search/content':
+      // Keyed by request id, so a superseded search is not collapsed into the newer one that
+      // replaced it: they carry different queries and main must be told about the newer.
+      return `${effect.type}|${effect.sessionId}|${effect.requestId}`;
     case 'settings/load':
       return effect.type;
     case 'settings/save':

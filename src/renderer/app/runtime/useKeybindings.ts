@@ -92,6 +92,9 @@ export const useKeybindings = (options: KeybindingOptions): void => {
             ? { type: 'overlay/closed' }
             : { type: 'overlay/opened', overlay: { type: 'help' } };
           break;
+        case 'openSearch':
+          action = { type: 'overlay/opened', overlay: { type: 'search' } };
+          break;
         case 'openSettings':
           action = { type: 'overlay/opened', overlay: { type: 'settings' } };
           break;

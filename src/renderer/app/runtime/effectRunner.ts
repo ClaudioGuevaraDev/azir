@@ -173,6 +173,30 @@ export const createEffectRunner = (bridge: AppBridge): EffectRunner => {
         return;
       }
 
+      case 'search/content': {
+        const result = await bridge.search.content({
+          sessionId: effect.sessionId,
+          query: effect.query,
+          requestId: effect.requestId,
+        });
+        if (!result.ok) {
+          dispatch({
+            type: 'search/contentFailed',
+            sessionId: effect.sessionId,
+            requestId: effect.requestId,
+            error: result.error,
+          });
+          return;
+        }
+        dispatch({
+          type: 'search/contentLoaded',
+          sessionId: effect.sessionId,
+          requestId: effect.requestId,
+          response: result.value,
+        });
+        return;
+      }
+
       case 'settings/load': {
         const result = await bridge.settings.load();
         if (!result.ok) {

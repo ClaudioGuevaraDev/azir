@@ -111,6 +111,28 @@ export const startEventPump = (options: EventPumpOptions): EventPump => {
   );
 
   subscriptions.push(
+    options.bridge.search.onIndex((event) => {
+      options.dispatch({
+        type: 'search/indexReady',
+        sessionId: event.sessionId,
+        paths: event.paths,
+        truncated: event.truncated,
+      });
+    }),
+  );
+
+  subscriptions.push(
+    options.bridge.search.onIndexDelta((event) => {
+      options.dispatch({
+        type: 'search/indexChanged',
+        sessionId: event.sessionId,
+        added: event.added,
+        removed: event.removed,
+      });
+    }),
+  );
+
+  subscriptions.push(
     options.bridge.app.onQuitRequested(() => {
       // The paths are read here because the overlay slice cannot see the viewer slice, and the
       // reducer is not allowed to go looking.

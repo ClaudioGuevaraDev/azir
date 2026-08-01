@@ -15,6 +15,7 @@ import {
   type Overlay,
   type OverlayState,
 } from './chrome';
+import { initialSearchState, type SearchState } from './search';
 import { initialSettingsState, type SettingsState } from './settings';
 import { activeTab, initialViewerState, type ViewerState, type ViewerTab } from './viewer';
 import {
@@ -118,6 +119,7 @@ export interface AppState {
   readonly layout: LayoutState;
   readonly focus: FocusState;
   readonly overlays: OverlayState;
+  readonly search: SearchState;
   readonly settings: SettingsState;
   readonly notices: NoticesState;
 }
@@ -130,6 +132,7 @@ export const initialState: AppState = {
   layout: initialLayoutState,
   focus: initialFocusState,
   overlays: initialOverlayState,
+  search: initialSearchState,
   settings: initialSettingsState,
   notices: { items: [], nextId: 1 },
 };
@@ -181,6 +184,8 @@ export const selectFocusedPanel = (state: AppState): Panel => state.focus.panel;
 export const selectOverlay = (state: AppState): Overlay | null => state.overlays.current;
 
 export const selectSettings = (state: AppState): SettingsState => state.settings;
+
+export const selectSearch = (state: AppState): SearchState => state.search;
 
 export const selectActiveTabGitStatus = (state: AppState): GitFileStatus | undefined => {
   const tab = activeTab(state.viewer);

@@ -138,7 +138,9 @@ previous test's Electron has not finished exiting, the next one loses the lock a
 quits before creating a window — so Playwright waits for a window that never arrives
 and the test dies at its own timeout, on whichever test happened to be next. It reads
 exactly like flake and is not. Isolating the directory also cut the suite from 3.6
-minutes to 1.5.
+minutes to 1.5. `e2e/settings.spec.ts` is the one exception, and it launches Electron
+itself: proving a setting survives a restart means two launches that deliberately
+_share_ a user-data directory.
 
 **Specs open purpose-built fixtures in the temp directory, never this repository.**
 Opening a workspace starts a filesystem watcher, and the live repo contains `release/`
@@ -160,23 +162,25 @@ needs CI with a platform matrix or real hardware.
 
 ## Status
 
-| Milestone                                  | State       |
-| ------------------------------------------ | ----------- |
-| M0 — shell, security, boundaries           | done        |
-| M1 — typed IPC spine, reducer/effect store | done        |
-| M2 — integrated terminal                   | done        |
-| M3 — filesystem and repository tree        | done        |
-| M4 — git status                            | done        |
-| M5 — filesystem watcher                    | done        |
-| M6 — code viewer and diff                  | done        |
-| M7 — editing, layout, overlays             | done        |
-| M8 — settings and search                   | not started |
+| Milestone                                  | State |
+| ------------------------------------------ | ----- |
+| M0 — shell, security, boundaries           | done  |
+| M1 — typed IPC spine, reducer/effect store | done  |
+| M2 — integrated terminal                   | done  |
+| M3 — filesystem and repository tree        | done  |
+| M4 — git status                            | done  |
+| M5 — filesystem watcher                    | done  |
+| M6 — code viewer and diff                  | done  |
+| M7 — editing, layout, overlays             | done  |
+| M8 — settings and search                   | done  |
 
 **The product's loop is complete, and the user can now close it.** An agent changes
 files; the workspace notices without being asked; the repository panel shows what
 moved; the viewer shows the file and its diff; the terminal is right there to act on
-it — and a small correction no longer needs a second editor. What remains is settings
-and search.
+it — and a small correction no longer needs a second editor.
+
+Every milestone in the plan has landed. What follows is the shape of the last two,
+because both contain decisions that are not obvious from the code.
 
 Editing is deliberately limited: type, delete, split and join lines, and save. No
 multi-cursor, no find-and-replace, no undo stack beyond what a single edit needs.
@@ -198,6 +202,44 @@ a defined order instead of collapsing into unusable slivers. Nothing renders unt
 stage has been measured; mounting a terminal into a 0×0 slot is not merely ugly, it
 leaves xterm attached to a degenerate grid and the pane permanently blank.
 
+**Settings** are loaded by main before the window exists, held live in renderer state,
+and written back through a debounced, deduplicated, atomic write. A malformed file
+falls back one field at a time — and the fields that fell back are _named_ in the
+settings overlay, because a value silently reset is indistinguishable from the
+application ignoring the user. There are three groups rather than the spec's six: the
+absent ones would each be a setting whose only effect is to be written to a file, or
+one that needs a design rather than a checkbox, and both cases are argued where the
+type is defined.
+
+The renderer sends _patches_ of whole groups and main owns the merge. That is not
+elegance for its own sake — slices cannot see one another, so no slice could assemble a
+whole `Settings` document. The shape falls out of the constraint and pays for itself:
+a group written by a future version survives a write instead of being erased by it. The
+same reasoning removed the shell from the create-terminal request entirely; main reads
+it from the settings store, exactly as it already derived the working directory.
+
+**Search** is two features that share a text box. Path search runs entirely in the
+renderer against an index main walks once and pushes over — the spec requires it to
+answer on every keystroke without IPC, and the reducer enforces that structurally by
+having no effect to emit. Content search is a literal, case-insensitive substring scan
+in main. Deliberately not a regular expression: the query comes from the untrusted side,
+and an arbitrary pattern is a denial of service against the process every PTY byte flows
+through.
+
+Both the walk and the scan yield the event loop back at a fixed interval, which is what
+invariant 8 — "PTY traffic never waits behind git, search or filesystem scans" — costs
+in practice. It is asserted end to end by typing a command into the terminal while a
+search over 3,000 files is running and waiting for the echo. A newer query abandons the
+older one on both sides: main stops the work, and the reducer drops any answer whose
+request id is no longer current. Either alone is insufficient — an abandoned search can
+already have its result in the IPC queue.
+
+The index tracks what an agent does, live. It is updated from the watcher's _raw_
+events rather than from the coalesced batch, because the batch carries consequences —
+which directories are stale, which files changed — and an index needs to know that a
+path came into existence. Main and the renderer apply the same deltas from the same
+source, so their two copies cannot drift.
+
 The viewer is read-only in diff mode. Diffs are unified rather than side-by-side because the
 panel shares the window with a tree and a terminal, and a split view in that width
 truncates both sides. There is no syntax highlighting: the spec is explicit that
@@ -217,8 +259,8 @@ refreshes what is on screen instead of applying a list it knows is incomplete.
 
 ### Deviations from the spec, and why
 
-Two things in `docs/architecture.md` are deliberately not implemented as written.
-Both are documented at the code that replaces them.
+Four things in `docs/architecture.md` are deliberately not implemented as written.
+Each is documented at the code that replaces it.
 
 **`terminal/output` is not an action.** The spec lists one, but dispatching an
 action per PTY chunk contradicts its own performance rules 1–2 and its statement
@@ -231,3 +273,17 @@ that 10,000 chunks cause zero re-renders, so this cannot regress quietly.
 **`terminal/write` and `terminal/resize` are not effects.** Keystrokes and window
 drags are continuous and carry no application state; routing them through the
 reducer would make every character a state transition.
+
+**Three of the six settings groups are absent.** `updates` would configure an update
+mechanism that does not exist, and a setting whose only effect is to be written to a
+file is a promise the application does not keep. `repository`'s obvious member — show
+ignored files — cannot be one field: the scanner and the watcher share a single ignore
+list precisely so they cannot disagree about what exists, and pointing a recursive
+watcher at `node_modules` is a known way to take the process down. `appearance` keeps
+only the code font size. Invariant 15, applied to configuration.
+
+**Content search runs in the main process, not a worker thread.** The spec allows
+either. A worker would be a fourth build target and a fourth set of asar path problems
+for one module; chunked scanning with an explicit yield between files satisfies the actual
+requirement, which is that a search never blocks PTY traffic — and that is asserted
+end to end rather than assumed.

@@ -4,6 +4,7 @@ import type {
   FileDiff,
   FsChangeBatch,
   GitStatusResponse,
+  ContentSearchResponse,
   ReadFileResponse,
   SettingsSnapshot,
   ShellKind,
@@ -16,6 +17,7 @@ import type { Arrangement, Panel } from '@shared/models/layout';
 import type { Overlay } from './chrome';
 import type { EditOperation } from './document';
 import type { RepositoryView } from './repository';
+import type { SearchMode } from './search';
 import { nextRequestId } from './runtime/requestIds';
 import type { RequestId, Severity } from './state';
 import type { ViewerMode } from './viewer';
@@ -279,6 +281,48 @@ export type Action =
    */
   | { readonly type: 'app/quitRequested'; readonly unsavedPaths: readonly string[] }
   | { readonly type: 'app/quitConfirmed' }
+  // ---- search
+  | {
+      readonly type: 'search/indexReady';
+      readonly sessionId: WorkspaceSessionId;
+      readonly paths: readonly string[];
+      readonly truncated: boolean;
+    }
+  | {
+      readonly type: 'search/indexChanged';
+      readonly sessionId: WorkspaceSessionId;
+      readonly added: readonly string[];
+      readonly removed: readonly string[];
+    }
+  /**
+   * The request id is minted at the dispatch edge and carried even in path mode, where it is
+   * unused — the alternative is two near-identical actions, and a component deciding which to
+   * send based on the current mode. That decision belongs in the reducer.
+   */
+  | {
+      readonly type: 'search/queryChanged';
+      readonly sessionId: WorkspaceSessionId;
+      readonly query: string;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'search/modeChanged';
+      readonly sessionId: WorkspaceSessionId;
+      readonly mode: SearchMode;
+      readonly requestId: RequestId;
+    }
+  | {
+      readonly type: 'search/contentLoaded';
+      readonly sessionId: WorkspaceSessionId;
+      readonly requestId: RequestId;
+      readonly response: ContentSearchResponse;
+    }
+  | {
+      readonly type: 'search/contentFailed';
+      readonly sessionId: WorkspaceSessionId;
+      readonly requestId: RequestId;
+      readonly error: AppError;
+    }
   // ---- settings
   /**
    * Main's validated values, delivered once at startup.

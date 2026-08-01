@@ -10,6 +10,7 @@ import { startEventPump } from '../app/runtime/eventPump';
 import { createStore, type Store } from '../app/store';
 import { selectPanes, type AppState, type TerminalPaneState } from '../app/state';
 import { createTerminalRegistry, type TerminalRegistry } from './registry';
+import { initialSearchState } from '../app/search';
 import { initialSettingsState } from '../app/settings';
 
 /**
@@ -61,6 +62,7 @@ const openWorkspaceState = (activePaneId: string | null): AppState => {
     layout: initialLayoutState,
     focus: initialFocusState,
     overlays: initialOverlayState,
+    search: initialSearchState,
     settings: initialSettingsState,
     notices: { items: [], nextId: 1 },
   };
@@ -73,6 +75,7 @@ const setup = (activePaneId: string | null): Harness => {
   const bridge = {
     app: { onQuitRequested: () => () => {} },
     fs: { onChanged: () => () => {} },
+    search: { onIndex: () => () => {}, onIndexDelta: () => () => {} },
     terminal: {
       onData: (listener: (event: TerminalDataEvent) => void) => {
         dataListener = listener;

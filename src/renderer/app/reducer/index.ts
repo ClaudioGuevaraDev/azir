@@ -6,6 +6,7 @@ import { focusReducer, layoutReducer, overlayReducer } from './chrome';
 import { combineSlices, type Reduction } from './combine';
 import { noticesReducer } from './notices';
 import { repositoryReducer } from './repository';
+import { searchReducer } from './search';
 import { settingsReducer } from './settings';
 import { terminalsReducer } from './terminals';
 import { viewerReducer } from './viewer';
@@ -26,6 +27,7 @@ const combined = combineSlices<AppState>({
   layout: layoutReducer,
   focus: focusReducer,
   overlays: overlayReducer,
+  search: searchReducer,
   settings: settingsReducer,
   notices: noticesReducer,
 });
@@ -65,6 +67,12 @@ const sessionOf = (action: Action): WorkspaceSessionId | undefined => {
     case 'viewer/saved':
     case 'viewer/saveFailed':
     case 'viewer/reloadRequested':
+    case 'search/indexReady':
+    case 'search/indexChanged':
+    case 'search/queryChanged':
+    case 'search/modeChanged':
+    case 'search/contentLoaded':
+    case 'search/contentFailed':
       return action.sessionId;
     default:
       return undefined;

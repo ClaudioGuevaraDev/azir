@@ -33,6 +33,19 @@ export interface WatcherService {
 
 export interface WatcherServiceOptions {
   readonly emit: (batch: FsChangeBatch) => void;
+  /**
+   * Every raw event, before batching.
+   *
+   * The batch deliberately carries *consequences* — which directories are stale, which files
+   * changed — and that is the right shape for the repository panel. It is the wrong shape for
+   * the search index, which needs to know that a path came into existence or stopped existing.
+   * Rather than widen the batch for one consumer, the raw stream is offered alongside it.
+   */
+  readonly onRawEvent?: (
+    sessionId: WorkspaceSessionId,
+    kind: FsEventKind,
+    relativePosix: string,
+  ) => void;
   /** Reported so the UI can fall back to manual refresh rather than looking stale. */
   readonly onFailure?: (sessionId: WorkspaceSessionId, detail: string) => void;
   readonly batcher?: BatcherOptions;
@@ -112,6 +125,7 @@ export const createWatcherService = (options: WatcherServiceOptions): WatcherSer
           if (relative === '' || relative.startsWith('..')) {
             return;
           }
+          options.onRawEvent?.(sessionId, kind, relative);
           batcher.push({ kind, path: relative });
         });
       }

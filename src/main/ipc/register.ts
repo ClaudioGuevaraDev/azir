@@ -10,6 +10,7 @@ import {
   readFileRequestSchema,
   resizeTerminalRequestSchema,
   saveSettingsRequestSchema,
+  searchContentRequestSchema,
   unsavedRequestSchema,
   workspaceCloseRequestSchema,
   workspaceOpenRequestSchema,
@@ -63,6 +64,11 @@ export const registerIpcHandlers = (context: AppContext): void => {
       // unnoticed. A watcher that fails to start reports and leaves manual refresh
       // working.
       context.watcher.start(opened.value.sessionId, opened.value.root);
+      // Started here too, and deliberately not awaited: a large workspace takes a while to walk,
+      // and blocking `open` on it would mean the window sits empty until it finishes. The index
+      // arrives as an event, and until it does the search overlay says it is still indexing
+      // rather than reporting no results.
+      context.search.start(opened.value.sessionId, opened.value.root);
     }
     return opened;
   });
@@ -150,6 +156,23 @@ export const registerIpcHandlers = (context: AppContext): void => {
     // The root comes from the session, so git can never be pointed at a directory
     // outside the workspace.
     return context.git.status(session.value.root);
+  });
+
+  // ---- search
+
+  handleResult(CHANNELS.searchContent, searchContentRequestSchema, (request) => {
+    const session = context.sessions.require(request.sessionId);
+    if (!session.ok) {
+      return err(session.error.code, session.error.message);
+    }
+    // The root comes from the session, as everywhere else, so a search can never be pointed at a
+    // directory outside the workspace.
+    return context.search.content(
+      request.sessionId,
+      session.value.root,
+      request.query,
+      request.requestId,
+    );
   });
 
   // ---- settings

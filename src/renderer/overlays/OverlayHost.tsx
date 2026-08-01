@@ -1,16 +1,30 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ARRANGEMENTS, PANELS, type Arrangement, type Panel } from '@shared/models/layout';
 import { CODE_FONT_SIZE_RANGE, SHELL_KINDS, type ShellKind } from '@shared/models/settings';
-import { reloadRequested } from '../app/actions';
+import { fileOpenRequested, reloadRequested } from '../app/actions';
 import type { ConfirmIntent, Overlay } from '../app/chrome';
 import { useAppState, useDispatch } from '../app/react';
 import { documentedBindings } from '../app/runtime/keybindings';
-import { selectLayout, selectOverlay, selectSessionId, selectSettings } from '../app/state';
+import { nextRequestId } from '../app/runtime/requestIds';
+import {
+  matchPaths,
+  type ContentResultsState,
+  type PathHit,
+  type PathIndexState,
+} from '../app/search';
+import {
+  selectLayout,
+  selectOverlay,
+  selectSearch,
+  selectSessionId,
+  selectSettings,
+} from '../app/state';
 import './OverlayHost.css';
 
 const TITLES: Record<Overlay['type'], string> = {
   help: 'Keyboard shortcuts',
   settings: 'Settings',
+  search: 'Search',
   confirm: 'Unsaved changes',
 };
 
@@ -79,6 +93,7 @@ export const OverlayHost = (): React.JSX.Element | null => {
         </header>
 
         {overlay.type === 'help' && <HelpBody />}
+        {overlay.type === 'search' && <SearchBody />}
         {overlay.type === 'settings' && <SettingsBody />}
         {overlay.type === 'confirm' && <ConfirmBody intent={overlay.intent} />}
       </div>
@@ -181,6 +196,213 @@ const PANEL_LABELS: Record<Panel, string> = {
   repository: 'Repository',
   viewer: 'Viewer',
   terminal: 'Terminal',
+};
+
+/**
+ * Search.
+ *
+ * Two modes behind one box, and the difference between them is where the work happens. Path search
+ * runs here, against the index in state, on every keystroke and without any IPC — that is a
+ * requirement of docs/architecture.md, and `useMemo` over `matchPaths` is the whole of it. Content
+ * search is an effect, and its results are gated on a request id so a slow answer to an
+ * abandoned query cannot overwrite the answer to the current one.
+ */
+const SearchBody = (): React.JSX.Element => {
+  const search = useAppState(selectSearch);
+  const sessionId = useAppState(selectSessionId);
+  const dispatch = useDispatch();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    // The overlay is opened to type into. Anything else would make the shortcut a two-step.
+    inputRef.current?.focus();
+  }, []);
+
+  const pathHits = useMemo(
+    () => (search.index.status === 'ready' ? matchPaths(search.index.paths, search.query) : []),
+    [search.index, search.query],
+  );
+
+  if (sessionId === null) {
+    return <p className="overlay__note">Open a workspace to search it.</p>;
+  }
+
+  const open = (path: string): void => {
+    dispatch(fileOpenRequested(sessionId, path));
+    dispatch({ type: 'overlay/closed' });
+  };
+
+  return (
+    <div className="overlay__search">
+      <div className="overlay__choices" role="group">
+        {(['path', 'content'] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            className="overlay__choice"
+            data-active={search.mode === mode}
+            data-testid={`search-mode-${mode}`}
+            onClick={() =>
+              dispatch({
+                type: 'search/modeChanged',
+                sessionId,
+                mode,
+                requestId: nextRequestId(),
+              })
+            }
+          >
+            {mode === 'path' ? 'File paths' : 'File contents'}
+          </button>
+        ))}
+      </div>
+
+      <input
+        ref={inputRef}
+        type="text"
+        className="overlay__input"
+        data-testid="search-input"
+        placeholder={search.mode === 'path' ? 'Path fragments, in order' : 'Text to find'}
+        aria-label="Search"
+        value={search.query}
+        onChange={(event) =>
+          dispatch({
+            type: 'search/queryChanged',
+            sessionId,
+            query: event.target.value,
+            requestId: nextRequestId(),
+          })
+        }
+      />
+
+      {search.mode === 'path' ? (
+        <PathResults index={search.index} query={search.query} hits={pathHits} onOpen={open} />
+      ) : (
+        <ContentResults query={search.query} results={search.content} onOpen={open} />
+      )}
+    </div>
+  );
+};
+
+const PathResults = ({
+  index,
+  query,
+  hits,
+  onOpen,
+}: {
+  readonly index: PathIndexState;
+  readonly query: string;
+  readonly hits: readonly PathHit[];
+  readonly onOpen: (path: string) => void;
+}): React.JSX.Element => {
+  if (index.status !== 'ready') {
+    // Not "no matches". While the walk is running the honest answer is that we do not know yet,
+    // and saying otherwise tells the user their file does not exist.
+    return (
+      <p className="overlay__note" data-testid="search-indexing">
+        Indexing the workspace…
+      </p>
+    );
+  }
+  if (query.trim() === '') {
+    return (
+      <p className="overlay__note" data-testid="search-empty">
+        {index.paths.length} files indexed
+        {index.truncated ? ' (the workspace was too large to index completely)' : ''}.
+      </p>
+    );
+  }
+  if (hits.length === 0) {
+    return (
+      <p className="overlay__note" data-testid="search-no-results">
+        No matching paths.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="overlay__results" data-testid="search-results">
+      {hits.map((hit) => (
+        <li key={hit.path}>
+          <button
+            type="button"
+            className="overlay__result"
+            data-testid={`search-result-${hit.path}`}
+            onClick={() => onOpen(hit.path)}
+          >
+            {hit.path}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+const ContentResults = ({
+  query,
+  results,
+  onOpen,
+}: {
+  readonly query: string;
+  readonly results: ContentResultsState;
+  readonly onOpen: (path: string) => void;
+}): React.JSX.Element => {
+  if (query.trim() === '') {
+    return (
+      <p className="overlay__note" data-testid="search-empty">
+        Type to search file contents. Literal text, not a pattern.
+      </p>
+    );
+  }
+  if (results.status === 'searching' || results.status === 'idle') {
+    return (
+      <p className="overlay__note" data-testid="search-searching">
+        Searching…
+      </p>
+    );
+  }
+  if (results.status === 'error') {
+    return (
+      <p className="overlay__note" data-warning data-testid="search-error">
+        {results.error.message}
+      </p>
+    );
+  }
+  if (results.matches.length === 0) {
+    return (
+      <p className="overlay__note" data-testid="search-no-results">
+        No matches in {results.filesScanned} files.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <ul className="overlay__results" data-testid="search-results">
+        {results.matches.map((match) => (
+          <li key={`${match.path}:${match.line}:${match.column}`}>
+            <button
+              type="button"
+              className="overlay__result"
+              data-testid={`search-result-${match.path}:${match.line}`}
+              onClick={() => onOpen(match.path)}
+            >
+              <span className="overlay__result-path">
+                {match.path}:{match.line}
+              </span>
+              <span className="overlay__result-preview">{match.preview}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {results.truncated && (
+        // Said, not hidden. A capped result set presented as complete is the one thing a search
+        // must never do.
+        <p className="overlay__note" data-testid="search-truncated">
+          Showing the first {results.matches.length} matches; there are more.
+        </p>
+      )}
+    </>
+  );
 };
 
 const SHELL_LABELS: Record<ShellKind, string> = {

@@ -64,6 +64,12 @@ const bridge: AppBridge = {
     diff: (request) => ipcRenderer.invoke(CHANNELS.gitDiff, request),
   },
 
+  search: {
+    content: (request) => ipcRenderer.invoke(CHANNELS.searchContent, request),
+    onIndex: (listener) => subscribe(CHANNELS.eventSearchIndex, listener),
+    onIndexDelta: (listener) => subscribe(CHANNELS.eventSearchIndexDelta, listener),
+  },
+
   settings: {
     load: () => ipcRenderer.invoke(CHANNELS.settingsLoad),
     save: (request) => {

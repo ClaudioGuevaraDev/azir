@@ -7,6 +7,7 @@ import { initialRepositoryState } from './repository';
 import { initialViewerState } from './viewer';
 import { createStore, type Dispatch } from './store';
 import type { AppState } from './state';
+import { initialSearchState } from './search';
 import { initialSettingsState } from './settings';
 
 /**
@@ -23,6 +24,7 @@ const stateWith = (nextId: number): AppState => ({
   layout: initialLayoutState,
   focus: initialFocusState,
   overlays: initialOverlayState,
+  search: initialSearchState,
   settings: initialSettingsState,
   notices: { items: [], nextId },
 });

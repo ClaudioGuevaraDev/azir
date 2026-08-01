@@ -42,6 +42,12 @@ export const CHANNELS = {
    */
   settingsSave: 'settings:save',
 
+  /**
+   * Content search. Path search has no channel at all, by design: the spec requires it to answer
+   * on every keystroke without IPC, so it runs against the index the renderer already holds.
+   */
+  searchContent: 'search:content',
+
   terminalCreate: 'terminal:create',
   terminalWrite: 'terminal:write',
   terminalResize: 'terminal:resize',
@@ -55,6 +61,9 @@ export const CHANNELS = {
   eventTerminalExit: 'event:terminal:exit',
   eventFsChanged: 'event:fs:changed',
   eventQuitRequested: 'event:app:quitRequested',
+  /** The path index, once it has finished building, and its incremental updates thereafter. */
+  eventSearchIndex: 'event:search:index',
+  eventSearchIndexDelta: 'event:search:indexDelta',
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];

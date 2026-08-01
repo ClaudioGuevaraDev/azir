@@ -34,6 +34,7 @@ export type Command =
   | { readonly kind: 'openWorkspace' }
   | { readonly kind: 'newTerminal' }
   | { readonly kind: 'closeTerminal' }
+  | { readonly kind: 'openSearch' }
   | { readonly kind: 'toggleHelp' }
   | { readonly kind: 'openSettings' }
   | { readonly kind: 'dismissOverlay' };
@@ -110,6 +111,14 @@ export const BINDINGS: readonly Entry[] = [
     label: 'Ctrl+Shift+W',
     description: 'Close the active terminal pane',
     command: { kind: 'closeTerminal' },
+  },
+  {
+    // Ctrl+F alone is readline's forward-char, so it belongs to the shell. Ctrl+Shift+F is one of
+    // the chords a terminal cannot even encode, which is what makes it available.
+    chord: { code: 'KeyF', ctrl: true, shift: true },
+    label: 'Ctrl+Shift+F',
+    description: 'Search files and contents',
+    command: { kind: 'openSearch' },
   },
   {
     chord: { code: 'F1' },

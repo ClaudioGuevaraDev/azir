@@ -168,3 +168,78 @@ kbd {
   color: var(--azir-text-dim);
   font-size: var(--azir-text-xs);
 }
+
+/* A field that fell back, or a capped result set. Visible without being an error. */
+.overlay__note[data-warning] {
+  color: var(--azir-warning);
+}
+
+/* ---------------------------------------------------------------- search */
+
+.overlay__search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--azir-space-3);
+  /* Bounded so a long result list scrolls inside the dialog instead of growing it past the
+     window, which would put the input off screen — in the one overlay whose input is the point. */
+  max-height: min(60vh, 520px);
+}
+
+.overlay__input {
+  padding: var(--azir-space-2) var(--azir-space-3);
+  border: 1px solid var(--azir-border);
+  border-radius: var(--azir-radius-sm);
+  background: var(--azir-surface);
+  color: var(--azir-text);
+  font-family: var(--azir-font-mono);
+  font-size: var(--azir-text-sm);
+}
+
+.overlay__input:focus {
+  border-color: var(--azir-accent);
+  outline: none;
+}
+
+.overlay__results {
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.overlay__result {
+  display: flex;
+  gap: var(--azir-space-3);
+  width: 100%;
+  padding: var(--azir-space-1) var(--azir-space-2);
+  border: none;
+  border-radius: var(--azir-radius-sm);
+  background: none;
+  color: var(--azir-text);
+  font-family: var(--azir-font-mono);
+  font-size: var(--azir-text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.overlay__result:hover,
+.overlay__result:focus-visible {
+  background: var(--azir-surface-raised);
+  outline: none;
+}
+
+.overlay__result-path {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--azir-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay__result-preview {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}

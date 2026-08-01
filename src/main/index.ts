@@ -68,6 +68,7 @@ const bootstrap = async (): Promise<void> => {
     // and it is invisible until the user goes looking.
     context.terminals.disposeAll();
     context.watcher.stopAll();
+    context.search.stopAll();
     // Synchronous for the same reason as everything above it. A setting changed inside the
     // debounce window and then quit is otherwise lost, which reads as the setting not working.
     context.settings.flushSync();

@@ -14,8 +14,12 @@ import type {
   PingResponse,
   ReadFileRequest,
   ReadFileResponse,
+  ContentSearchResponse,
   ResizeTerminalRequest,
   SaveSettingsRequest,
+  SearchContentRequest,
+  SearchIndexDeltaEvent,
+  SearchIndexEvent,
   SettingsSnapshot,
   WriteFileRequest,
   WriteFileResponse,
@@ -87,6 +91,19 @@ export interface AppBridge {
     status(request: GitStatusRequest): Promise<Result<GitStatusResponse>>;
     /** Requested only when a diff is actually on screen — performance rule 5. */
     diff(request: GitDiffRequest): Promise<Result<FileDiff>>;
+  };
+
+  readonly search: {
+    /**
+     * Content search. There is no path-search method, and that is the design: the spec requires
+     * path search to answer on every keystroke without IPC, so it runs in the renderer against
+     * the index delivered by `onIndex`.
+     */
+    content(request: SearchContentRequest): Promise<Result<ContentSearchResponse>>;
+    /** The path index, once main has finished walking the workspace. */
+    onIndex(listener: (event: SearchIndexEvent) => void): Unsubscribe;
+    /** Incremental updates, so the index tracks what an agent creates and deletes. */
+    onIndexDelta(listener: (event: SearchIndexDeltaEvent) => void): Unsubscribe;
   };
 
   readonly settings: {

@@ -474,3 +474,74 @@ export const saveSettingsRequestSchema = z
 export type SaveSettingsRequest = {
   readonly [K in keyof Settings]?: Settings[K] | undefined;
 };
+
+// ---------------------------------------------------------------- search:*
+
+/** One hit, carrying enough to render a row and to open the file at the right place. */
+export interface ContentMatch {
+  /** Workspace-relative POSIX path, the same identity the tree and the viewer use. */
+  readonly path: string;
+  /** 1-based, so it matches the viewer's gutter without arithmetic at the call site. */
+  readonly line: number;
+  readonly column: number;
+  /** The matching line, trimmed to a bounded length. */
+  readonly preview: string;
+}
+
+export const searchContentRequestSchema = z.object({
+  sessionId: z.number().int().nonnegative(),
+  /**
+   * A literal substring, never a pattern.
+   *
+   * See main/search/contentSearch.ts: a renderer-supplied regular expression is a denial of
+   * service against the process every PTY byte flows through, and no validation makes an
+   * arbitrary one safe to run there.
+   */
+  query: z.string().min(1).max(512),
+  /**
+   * Echoed back untouched.
+   *
+   * docs/architecture.md: "Every content-search result carries query and requestId. The reducer
+   * drops results for a query that is no longer current. Latest query wins."
+   */
+  requestId: z.string().min(1).max(64),
+});
+
+export type SearchContentRequest = z.infer<typeof searchContentRequestSchema>;
+
+export interface ContentSearchResponse {
+  /** Echoed so a late answer can be recognised even without its request id. */
+  readonly query: string;
+  readonly requestId: string;
+  readonly matches: readonly ContentMatch[];
+  /** True when a limit stopped the search early, so the UI can say "first N of more". */
+  readonly truncated: boolean;
+  readonly filesScanned: number;
+}
+
+/**
+ * The path index, pushed when it finishes building.
+ *
+ * Pushed rather than requested because building it takes as long as it takes, and a renderer
+ * blocking on that would be a workspace that does not open until a large repository has been
+ * walked.
+ */
+export interface SearchIndexEvent {
+  readonly sessionId: WorkspaceSessionId;
+  readonly paths: readonly string[];
+  readonly truncated: boolean;
+}
+
+/**
+ * An incremental change to the index.
+ *
+ * Derived from the watcher's *raw* events rather than from `FsChangeBatch`, which carries
+ * consequences — stale directories, changed files — and deliberately not the adds and removes an
+ * index needs. Main and the renderer both apply these, from the same source, so their two copies
+ * cannot drift.
+ */
+export interface SearchIndexDeltaEvent {
+  readonly sessionId: WorkspaceSessionId;
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
+}

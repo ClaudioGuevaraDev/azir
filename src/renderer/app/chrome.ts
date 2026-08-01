@@ -36,12 +36,6 @@ export interface FocusState {
 export const initialFocusState: FocusState = { panel: 'terminal' };
 
 /**
- * Overlays are drawn over the workspace and never occupy a layout slot.
- *
- * `search` and `confirm` from the spec's union are absent until they have callers: search
- * arrives in M8, confirm with editing in M7b.
- */
-/**
  * What a confirmation is about.
  *
  * Carried as data rather than a callback so the overlay stays a serialisable projection of
@@ -53,9 +47,15 @@ export type ConfirmIntent =
   | { readonly kind: 'reloadFromDisk'; readonly path: string }
   | { readonly kind: 'quitWithUnsaved'; readonly paths: readonly string[] };
 
+/**
+ * Overlays are drawn over the workspace and never occupy a layout slot.
+ *
+ * The spec's four, all present as of M8.
+ */
 export type Overlay =
   | { readonly type: 'help' }
   | { readonly type: 'settings' }
+  | { readonly type: 'search' }
   | { readonly type: 'confirm'; readonly intent: ConfirmIntent };
 
 export interface OverlayState {
