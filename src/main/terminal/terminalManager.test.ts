@@ -63,6 +63,8 @@ interface Harness {
   readonly data: TerminalDataEvent[];
   readonly exits: TerminalExitEvent[];
   readonly ptys: FakePty[];
+  /** Pids the shutdown path signalled, in order. */
+  readonly killedPids: number[];
   readonly flushPumps: () => void;
 }
 
@@ -70,6 +72,7 @@ const harness = (overrides: { createPty?: CreatePty; maxPanes?: number } = {}): 
   const data: TerminalDataEvent[] = [];
   const exits: TerminalExitEvent[] = [];
   const ptys: FakePty[] = [];
+  const killedPids: number[] = [];
   const flushers: Array<() => void> = [];
 
   const manager = createTerminalManager({
@@ -85,6 +88,9 @@ const harness = (overrides: { createPty?: CreatePty; maxPanes?: number } = {}): 
         return pty;
       }),
     resolveShellPath: () => ({ path: '/bin/fake-shell', args: ['-l'] }),
+    // Recorded rather than performed: signalling a real pid from a unit test would
+    // kill something on the machine running it.
+    killProcess: (pid) => killedPids.push(pid),
     // A pump that never schedules: emission is synchronous, so assertions do not
     // need a clock. outputPump.test.ts covers the batching itself.
     createPump: (emit) => {
@@ -104,6 +110,7 @@ const harness = (overrides: { createPty?: CreatePty; maxPanes?: number } = {}): 
     data,
     exits,
     ptys,
+    killedPids,
     flushPumps: () => flushers.forEach((flush) => flush()),
   };
 };
@@ -438,6 +445,59 @@ describe('teardown', () => {
 
     expect(h.manager.count()).toBe(0);
     expect(h.ptys.map((pty) => pty.killed())).toEqual([1, 1]);
+  });
+
+  it('after beginShutdown, shells are signalled by pid and node-pty is not asked to kill', () => {
+    // The point of the shutdown path. node-pty's kill() forks a helper that inherits
+    // our stdio and outlives the process, which is what left `app.close()` hanging for
+    // the full 60-second test timeout. A pid needs no helper.
+    const h = harness();
+    createOk(h, 1, 'p1');
+    createOk(h, 2, 'p2');
+
+    h.manager.beginShutdown();
+    h.manager.disposeAll();
+
+    expect(h.killedPids).toEqual([1000, 1001]);
+    expect(h.ptys.map((pty) => pty.killed())).toEqual([0, 0]);
+    expect(h.manager.count()).toBe(0);
+  });
+
+  it('closing one pane while the app lives still goes through node-pty', () => {
+    // The other half of the same decision: kill() is what releases the pseudoconsole
+    // handles, and skipping it in a process that keeps running would leak them.
+    const h = harness();
+    createOk(h, 1, 'p1');
+
+    h.manager.kill(1, 'p1');
+
+    expect(h.ptys[0]?.killed()).toBe(1);
+    expect(h.killedPids).toEqual([]);
+  });
+
+  it('the shutdown path stays idempotent', () => {
+    const h = harness();
+    createOk(h, 1, 'p1');
+
+    h.manager.beginShutdown();
+    h.manager.disposeAll();
+    h.manager.disposeAll();
+
+    expect(h.killedPids).toEqual([1000]);
+  });
+
+  it('a pid of zero is never signalled', () => {
+    // `process.kill(0)` means "every process in my group" on POSIX, so a spawn that
+    // came back without a pid must not reach it.
+    const h = harness({
+      createPty: (options) => makeFakePty(options, 0),
+    });
+    createOk(h, 1, 'p1');
+
+    h.manager.beginShutdown();
+    h.manager.disposeAll();
+
+    expect(h.killedPids).toEqual([]);
   });
 
   it('survives a pty whose kill throws, and still forgets it', () => {

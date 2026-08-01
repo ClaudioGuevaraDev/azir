@@ -26,6 +26,8 @@ import { resolveShell } from './shellResolver';
  *  - **Disposal is synchronous and idempotent.** `before-quit` cannot await, so
  *    killing has to be finished by the time the call returns, and it must survive
  *    being called twice. A leaked PTY is an orphan shell in Task Manager.
+ *  - **Shutdown kills the shell by pid instead of calling node-pty's `kill()`**, and
+ *    that difference is load-bearing rather than a shortcut. See `beginShutdown`.
  *  - **`createPty` is injected**, so every one of those behaviours is testable
  *    without spawning a real shell.
  */
@@ -63,6 +65,11 @@ export interface TerminalManagerOptions {
   readonly resolveShellPath?: typeof resolveShell;
   /** Injected so the pump can be driven by a fake clock in tests. */
   readonly createPump?: typeof createOutputPump;
+  /**
+   * Injected for the same reason as `createPty`: so the shutdown path can be asserted
+   * without a real shell to kill. Defaults to `process.kill`.
+   */
+  readonly killProcess?: (pid: number) => void;
 }
 
 export interface CreateTerminalOptions {
@@ -79,6 +86,39 @@ export interface TerminalManager {
   kill(sessionId: WorkspaceSessionId, paneId: TerminalPaneId): boolean;
   /** Kills every pane belonging to one session. Used on workspace disposal. */
   killSession(sessionId: WorkspaceSessionId): number;
+  /**
+   * Switches every later teardown to the shutdown path: kill the shell by pid, and do
+   * not call node-pty's `kill()`.
+   *
+   * The reason is a child process that outlives us. On Windows with ConPTY,
+   * node-pty's `kill()` calls `_getConsoleProcessList()`, which does
+   * `child_process.fork('conpty_console_list_agent')` with no options — so
+   * `silent: false` applies and the child **inherits our stdout and stderr**. It then
+   * kills the console process list in a `.then()`, i.e. after `before-quit` has already
+   * returned, with a 5-second watchdog living inside the process that is dying.
+   *
+   * Whoever holds those inherited pipes decides when our stdio closes, and that is not
+   * academic: Playwright waits for the spawned process's `close` event, which needs the
+   * process gone *and* every pipe shut. A surviving agent means `app.close()` never
+   * resolves — observed as an intermittent 60-second `afterEach` timeout in
+   * `e2e/viewer.spec.ts`, on whichever test happened to close fastest.
+   *
+   * Killing by pid takes none of that path. What node-pty's `kill()` would additionally
+   * do — release the pseudoconsole handles — buys nothing here, because the process
+   * holding them is exiting anyway. That is why this is the shutdown path only: closing
+   * one pane while the app keeps running must still go through `kill()`, or handles
+   * would leak into a live process.
+   *
+   * It also fixes a second, quieter bug on the same path. node-pty defers `kill()` until
+   * its `_isReady` flips, which happens on the PTY's *first byte*; a shell killed before
+   * it printed anything never gets killed at all. A pid does not need the shell to have
+   * said something first.
+   *
+   * Must be called before anything starts tearing panes down. In `main/index.ts` that
+   * means before `sessions.closeAll()`, which reaches teardown through the session
+   * disposal listener.
+   */
+  beginShutdown(): void;
   /** Kills everything. Used on shutdown. */
   disposeAll(): void;
   count(): number;
@@ -150,9 +190,13 @@ export const createTerminalManager = (options: TerminalManagerOptions): Terminal
   const createPump = options.createPump ?? createOutputPump;
   const resolve = options.resolveShellPath ?? resolveShell;
   const maxPanes = options.maxPanes ?? DEFAULT_MAX_PANES;
+  const killProcess = options.killProcess ?? ((pid: number) => process.kill(pid));
   const { emitter } = options;
 
   const sessions = new Map<string, PtySession>();
+
+  /** Once true, no teardown calls into node-pty's `kill()` again. See `beginShutdown`. */
+  let shuttingDown = false;
 
   const teardown = (session: PtySession): void => {
     if (session.closing) {
@@ -163,7 +207,15 @@ export const createTerminalManager = (options: TerminalManagerOptions): Terminal
     // Flush before killing: the last line is usually the one being waited for.
     session.pump.dispose();
     try {
-      session.process.kill();
+      if (shuttingDown) {
+        // A pid of 0 would mean "this process group" to `process.kill`, and a spawn that
+        // failed can leave it absent — either way there is nothing of ours to signal.
+        if (session.process.pid > 0) {
+          killProcess(session.process.pid);
+        }
+      } else {
+        session.process.kill();
+      }
     } catch (error) {
       // A shell that already exited throws here. Not an error worth surfacing —
       // the goal was for it to be gone, and it is.
@@ -296,6 +348,10 @@ export const createTerminalManager = (options: TerminalManagerOptions): Terminal
         teardown(session);
       }
       return owned.length;
+    },
+
+    beginShutdown() {
+      shuttingDown = true;
     },
 
     disposeAll() {

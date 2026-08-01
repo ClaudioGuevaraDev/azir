@@ -62,6 +62,12 @@ const bootstrap = async (): Promise<void> => {
    * SessionDisposeListener in workspace/sessions.ts.
    */
   app.on('before-quit', () => {
+    // First, and the order is not cosmetic: `closeAll` reaches the terminal manager
+    // through the session disposal listener, so anything that has to be true before a
+    // pane is torn down has to be set before this line. What this switches on is
+    // killing shells by pid rather than through node-pty, which otherwise forks a
+    // child that inherits our stdio and outlives us — see `beginShutdown`.
+    context.terminals.beginShutdown();
     context.sessions.closeAll();
     // Belt and braces: `closeAll` releases what the live session owned, and these
     // catch anything left over. An orphan shell in Task Manager is the failure mode,

@@ -244,7 +244,17 @@ test('quitting leaves no orphan shells', async () => {
   await window.getByTestId('terminal-add').click();
   await expectPrompt(window, 'p2');
 
+  const startedClosing = Date.now();
   await app.close();
+  const closeMs = Date.now() - startedClosing;
+
+  // A budget, not a performance assertion. Playwright resolves `close()` on the
+  // process's `close` event, which needs every inherited pipe shut as well as the
+  // process gone — so a child that outlives us makes this hang until the test's own
+  // 60s timeout instead of failing. That is how the node-pty fork this suite used to
+  // trip over showed up: an intermittent `afterEach` timeout on whichever test closed
+  // fastest, with no other symptom. A healthy quit here is well under two seconds.
+  expect(closeMs).toBeLessThan(15_000);
 
   // An orphan PTY is invisible until someone opens Task Manager, which is exactly
   // why it is asserted rather than assumed.
