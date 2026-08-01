@@ -22,3 +22,9 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Agent skills live in .agents/skills/ and are exposed to Claude Code through NTFS
+# junctions in .claude/skills/, which is the only directory it discovers. Git walks
+# into a junction, so committing this would store a second copy of all 239 files.
+# The junctions are local plumbing; recreate them from .agents/skills/ after cloning.
+.claude/skills/
