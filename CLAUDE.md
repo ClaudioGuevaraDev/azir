@@ -118,7 +118,7 @@ Disposal is **synchronous** throughout, because Electron will not restart a quit
 
 ## Enforced constraints
 
-Four mechanisms, not conventions — expect to fight them if you put code in the wrong layer:
+Five mechanisms, not conventions — expect to fight them if you put code in the wrong layer:
 
 1. `tsconfig.renderer.json` omits `types: ["node"]`, so Node imports in the renderer fail typecheck.
 2. `eslint.config.mjs` adds per-directory `no-restricted-imports`, catching forms the type layer
@@ -126,10 +126,31 @@ Four mechanisms, not conventions — expect to fight them if you put code in the
 3. `test/boundaries.test.ts` asserts that lint rule actually fires — and does _not_ fire in main.
 4. `windows/mainWindow.test.ts` asserts the mandatory Electron security settings;
    `e2e/smoke.spec.ts` asserts their observable effect.
+5. `test/dependencies.test.ts` asserts every dependency is pinned exactly — see below.
 
 TypeScript is strict plus `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` — hence the
 `{...(cond ? { error } : {})}` spread idiom rather than passing `undefined`, and the branch in `err()`
 rather than an object literal with an optional key.
+
+## Dependency versions
+
+**Every library is pinned to an exact version. No `^`, no `~`, no range of any kind.** A range makes
+the installed tree a function of the date it was installed on, and this project pays for that more
+than most: several classes of failure only appear when packaging, so a dependency that moved on its
+own turns "it worked last week" into a claim nobody can verify.
+
+Two things hold the rule up, and neither is sufficient alone:
+
+- `savePrefix: ''` in `pnpm-workspace.yaml` stops `pnpm add` from writing the `^` it defaults to.
+- `test/dependencies.test.ts` fails on a range that arrives some other way — a hand edit, a merge, or
+  `pnpm update`, which rewrites whatever specifier it finds.
+
+`engines` is the deliberate exception: `node: ">=22.13"` and `pnpm: ">=11"` are runtime floors, not
+installs, and `>=` is the right shape for them. `packageManager` is already exact.
+
+Moving a version is now an explicit act. `pnpm update <pkg>` rewrites the specifier, so that edit
+belongs in the same commit as whatever needed it — and the reason belongs in the commit message,
+because the manifest no longer carries any hint that a newer version was acceptable.
 
 ## Gotchas
 

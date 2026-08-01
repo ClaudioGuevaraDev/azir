@@ -85,7 +85,19 @@ CJS addon that resolves its helper binaries relative to its own directory; and
 native addons. React, zod and xterm are `devDependencies` because Rollup bundles
 them, which keeps the shipped `node_modules` small.
 
-**Version constraints that are not free choices.** `electron-vite` peers on
+**Every version is pinned exactly — no `^`, no `~`.** A range makes the installed
+tree depend on the day it was installed, which is a poor trade in any project and a
+worse one here: several classes of failure only surface when packaging, so a
+dependency that moved by itself makes "it worked last week" unverifiable. The lockfile
+already pins the resolved tree, but a lockfile only helps whoever has it — an install
+from a bare manifest, or a newly added package, still goes through the specifier.
+`savePrefix: ''` in `pnpm-workspace.yaml` keeps `pnpm add` from reintroducing a range,
+and `test/dependencies.test.ts` fails if one arrives any other way. `engines` is the
+exception on purpose: those are runtime floors, not installs.
+
+So the manifest no longer distinguishes the two reasons a version sits where it does,
+and one of them is worth stating. **Some versions are not free choices**, and would
+need pinning even without the rule above: `electron-vite` peers on
 `vite ^5 || ^6 || ^7`, so Vite must stay on 7 even though 8 is released.
 `typescript-eslint` peers on `typescript <6.1`, so TypeScript stays on 5.9 even
 though 7 is released. `@vitejs/plugin-react` must be 5.x; 6.x requires Vite 8.

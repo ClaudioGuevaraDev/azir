@@ -46,3 +46,15 @@ allowBuilds:
   node-pty: false
   esbuild: false
   electron-winstaller: false
+
+# Every dependency is pinned to an exact version, so `pnpm add` must not write the `^`
+# it defaults to. A range makes the installed tree a function of the date it was
+# installed on, and in this project that is expensive: several failures only show up
+# when packaging, so "worked last week" is not a useful signal.
+#
+# This is the half that governs dependencies added later. package.json holds the
+# already-pinned versions, and test/dependencies.test.ts fails if a range comes back —
+# without that test this setting would be a preference rather than a rule.
+#
+# `engines` is the deliberate exception: those are runtime floors, not installs.
+savePrefix: ''
