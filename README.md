@@ -13,9 +13,12 @@ Anything below that contradicts it is a bug in this file.
 
 | Tool    | Version                                          |
 | ------- | ------------------------------------------------ |
-| Node.js | ≥ 22 (developed on 24.18)                        |
-| npm     | ≥ 12                                             |
+| Node.js | ≥ 22.13 (developed on 24.18)                     |
+| pnpm    | ≥ 11 (developed on 11.17)                        |
 | git     | on `PATH` (Azir shells out to the system binary) |
+
+The Node floor is 22.13 because that is what pnpm 11 requires; below it pnpm exits
+before it can explain why.
 
 No C++ toolchain, Python or `node-gyp` is needed on Windows or macOS. See
 [Native modules](#native-modules) for why, and for the Linux exception.
@@ -23,20 +26,20 @@ No C++ toolchain, Python or `node-gyp` is needed on Windows or macOS. See
 ## Getting started
 
 ```bash
-npm install     # also fetches the Electron binary via the postinstall hook
-npm run dev     # electron-vite dev server + Electron, with renderer HMR
+pnpm install     # also fetches the Electron binary via the postinstall hook
+pnpm run dev     # electron-vite dev server + Electron, with renderer HMR
 ```
 
 Other scripts:
 
 ```bash
-npm run typecheck   # tsc over all four projects
-npm run lint        # eslint, including the architectural boundary rules
-npm test            # vitest: node, renderer and architecture suites
-npm run test:e2e    # builds, then Playwright against a real Electron process
-npm run build       # typecheck + bundle main, preload and renderer
-npm run dist        # packaged installer for the current platform
-npm run dist:dir    # unpacked build, useful for debugging packaging
+pnpm run typecheck   # tsc over all four projects
+pnpm run lint        # eslint, including the architectural boundary rules
+pnpm test            # vitest: node, renderer and architecture suites
+pnpm run test:e2e    # builds, then Playwright against a real Electron process
+pnpm run build       # typecheck + bundle main, preload and renderer
+pnpm run dist        # packaged installer for the current platform
+pnpm run dist:dir    # unpacked build, useful for debugging packaging
 ```
 
 ## Layout
@@ -92,6 +95,30 @@ with a pure reducer as the only writer. That is a few dozen lines over
 `useSyncExternalStore`; a second store would introduce a second writer and
 contradict invariant 1.
 
+**`pnpm`, with a deliberately flat `node_modules`.** The store gives content-addressed
+installs and a lockfile that resolves the same way twice, which is worth having. What
+is _not_ taken is pnpm's default isolated linker: `pnpm-workspace.yaml` sets
+`nodeLinker: hoisted`, so the tree stays flat exactly as npm left it.
+
+That is not timidity, it is three specific consumers that resolve by **layout** rather
+than by package name, each of which breaks differently under symlinks:
+
+- `electron-builder.yml` unpacks `**/node_modules/node-pty/**` from the asar — a literal
+  glob over a physical path.
+- `playwright-core` does `require("electron/index.js")` from inside its _own_ directory,
+  because `e2e/support.ts` deliberately passes no `executablePath`.
+- `node-pty` loads `../prebuilds/win32-x64/pty.node` relative to its own `lib/`.
+
+The strictness worth wanting — an undeclared dependency failing to resolve — is what gets
+given up, and knowingly. This repository's standing rule is that packaging can break what
+dev proves works, so preserving the layout removes that whole class of failure instead of
+one instance of it. On Windows there is a second, duller benefit: no
+`.pnpm/<pkg>@<version>/node_modules/…` paths pressing against `MAX_PATH`.
+
+Settings live in `pnpm-workspace.yaml` and there is **no `.npmrc`**. pnpm 11 reads only
+auth and registry from `.npmrc`; a `node-linker=hoisted` line there is ignored without a
+word, which is worse than absent — config that looks authoritative and governs nothing.
+
 ## Native modules
 
 `node-pty@1.1.0` is **Node-API** based and ships prebuilt binaries in its
@@ -101,10 +128,18 @@ tarball. This was verified empirically, not assumed:
   under Electron (module ABI 146). Node-API is ABI-stable, so there is no
   `electron-rebuild` step and `npmRebuild: false` is set in
   `electron-builder.yml`.
-- It also works with npm's install scripts **blocked**, because the prebuilds are
-  in the tarball and nothing has to be compiled. `package.json` therefore denies
-  install scripts for `node-pty`, `esbuild` and `electron-winstaller` explicitly
-  rather than approving them.
+- It also works with install scripts **blocked**, because the prebuilds are in the
+  tarball and nothing has to be compiled. The three that ship one — `node-pty`,
+  `esbuild` and `electron-winstaller` — are therefore denied explicitly rather than
+  approved. That policy is written twice, once per package manager, because both can
+  still install this project: `allowScripts` in `package.json` is npm 12's mechanism
+  (`npm approve-scripts` / `npm deny-scripts`), and `allowBuilds` in
+  `pnpm-workspace.yaml` is pnpm 11's. The two lists must agree. pnpm's
+  `strictDepBuilds` defaults on, so a _new_ dependency carrying an install script
+  aborts the install rather than being skipped quietly — the review step, made
+  mandatory instead of remembered. The observable proof that both work:
+  `node_modules/node-pty/build/` never comes into existence, because that is what
+  node-pty's postinstall would create.
 - Prebuilds cover `win32-x64`, `win32-arm64`, `darwin-x64` and `darwin-arm64`.
 
 **Linux has no prebuilds.** On Linux, `node-pty`'s install script falls back to
@@ -113,22 +148,31 @@ build must either provide those or vendor a prebuild.
 
 Electron 42 has no `postinstall` of its own — its binary is fetched lazily by
 `cli.js` on first run, or eagerly by the `install-electron` bin. The root
-`postinstall` script calls the latter so that `npm install` leaves the repo in a
-runnable state.
+`postinstall` script calls the latter so that `pnpm install` leaves the repo in a
+runnable state. `allowBuilds` does not suppress it: it governs dependencies, and the
+root package's own lifecycle scripts always run.
 
 Packaging keeps `**/node_modules/node-pty/**` outside the asar archive
 (`asarUnpack`): Windows cannot `LoadLibrary` a `.node` from inside an archive, and
 node-pty resolves `conpty.dll`, `OpenConsole.exe` and `winpty-agent.exe` relative
-to its own directory. This was verified against a real packaged build — `npm run
+to its own directory. This was verified against a real packaged build — `pnpm run
 dist:dir`, then launching `release/win-unpacked/Azir.exe` and running a command in
 its terminal — because "works in dev, dies when installed" is the characteristic
 failure here and no unit test can catch it.
 
+The same check is what qualified the move to pnpm, and it is the check to repeat after
+any change to the installer, the linker or `dependencies`. Its four observable results:
+the asar contains exactly `chokidar`, `node-addon-api`, `node-pty` and `readdirp`;
+`pty.node` sits under `app.asar.unpacked`; the launched binary opens a workspace and
+echoes a command typed into its terminal; and a file written from outside makes the
+watcher fire. The third and fourth matter most — a build that collects no production
+dependencies at all still **succeeds**, and only fails later, when a terminal is opened.
+
 ## Tests
 
-`npm test` runs Vitest across three projects (node, renderer, and one that asserts on
-the project itself). `npm run test:e2e` runs Playwright against a real packaged-shape
-Electron, so it needs `npm run build` first.
+`pnpm test` runs Vitest across three projects (node, renderer, and one that asserts on
+the project itself). `pnpm run test:e2e` runs Playwright against a real packaged-shape
+Electron, so it needs `pnpm run build` first.
 
 Two things about the end-to-end suite are worth knowing before changing it.
 

@@ -16,24 +16,27 @@ from it, the departure is argued in a comment at the code that replaces it.
 
 ## Commands
 
+The package manager is **pnpm** (≥ 11). `npm` still resolves this project, but installing
+with it desynchronises the lockfiles — see the versioning and gotchas sections.
+
 ```bash
-npm run dev          # electron-vite dev server + Electron, renderer HMR
-npm run typecheck    # tsc over main, preload, renderer and tooling projects
-npm run lint         # eslint, including the architectural boundary rules
-npm test             # vitest run: node + renderer + architecture projects
-npm run build        # typecheck + bundle all three targets
-npm run dist:dir     # unpacked build (the only way to catch packaging failures)
+pnpm run dev          # electron-vite dev server + Electron, renderer HMR
+pnpm run typecheck    # tsc over main, preload, renderer and tooling projects
+pnpm run lint         # eslint, including the architectural boundary rules
+pnpm test             # vitest run: node + renderer + architecture projects
+pnpm run build        # typecheck + bundle all three targets
+pnpm run dist:dir     # unpacked build (the only way to catch packaging failures)
 ```
 
 Single test / subset:
 
 ```bash
-npx vitest run src/main/git/parseDiff.test.ts   # one file
-npx vitest run --project node                    # main + shared only
-npx vitest run --project renderer                # jsdom only
-npx vitest run -t 'rejects a stale response'     # by test name
-npm run test:e2e                                 # electron-vite build, then all Playwright specs
-npx playwright test e2e/git.spec.ts              # one spec — requires a prior `npm run build`
+pnpm exec vitest run src/main/git/parseDiff.test.ts   # one file
+pnpm exec vitest run --project node                   # main + shared only
+pnpm exec vitest run --project renderer               # jsdom only
+pnpm exec vitest run -t 'rejects a stale response'    # by test name
+pnpm run test:e2e                                     # electron-vite build, then all Playwright specs
+pnpm exec playwright test e2e/git.spec.ts             # one spec — needs a prior `pnpm run build`
 ```
 
 E2E runs against a real Electron process, serially (`workers: 1`), so it is slow; prefer unit tests
@@ -141,8 +144,22 @@ rather than an object literal with an optional key.
   starts a watcher, and Playwright writes to `test-results/` while the suite runs.
 - **Packaging can break what dev proves works.** `node-pty` must stay outside the asar
   (`asarUnpack`) because Windows cannot `LoadLibrary` a `.node` from an archive and node-pty
-  resolves `conpty.dll` and friends relative to itself. Verify with `npm run dist:dir` then launch
-  `release/win-unpacked/Azir.exe` and run a command in its terminal.
+  resolves `conpty.dll` and friends relative to itself. Verify with `pnpm run dist:dir` then launch
+  `release/win-unpacked/Azir.exe` and run a command in its terminal. Check the asar's contents
+  too: a build that collects **zero** production dependencies still succeeds and only dies later,
+  when a terminal is opened. There should be four — `chokidar`, `node-addon-api`, `node-pty`,
+  `readdirp`.
+- **pnpm's settings live in `pnpm-workspace.yaml`, and there is no `.npmrc` on purpose.** pnpm 11
+  reads only auth and registry from `.npmrc`; anything else there is ignored _silently_. Putting
+  `node-linker=hoisted` in an `.npmrc` looks authoritative and does nothing.
+- **The flat `node_modules` is load-bearing** (`nodeLinker: hoisted`). electron-builder's
+  `asarUnpack` glob, playwright-core's `require("electron/index.js")` from its own directory, and
+  node-pty's `../prebuilds/…/pty.node` all resolve by layout. Switching to pnpm's default isolated
+  linker breaks **packaging**, not the tests — the e2e suite can stay green while `dist:dir`
+  produces something that dies on first terminal.
+- **The install-script denials are written twice**, once per package manager, and must agree:
+  `allowScripts` in `package.json` (npm 12) and `allowBuilds` in `pnpm-workspace.yaml` (pnpm 11).
+  The observable check is that `node_modules/node-pty/build/` never exists.
 - **`"type": "commonjs"` is required** (CJS preload for `sandbox: true`, node-pty's helper
   resolution, `__dirname` for the packaged `loadFile`). No top-level `await` in main; `bootstrap()`
   absorbs it.
@@ -182,10 +199,14 @@ Rules for `A.B.C`:
   change → patch. When a commit contains both, the highest applicable level wins.
 - A minor bump resets the patch to `0` (`0.4.7` → `0.5.0`), per semver.
 
-Bump it with `npm version <minor|patch> --no-git-tag-version`, which updates `package.json` and the
-two root entries in `package-lock.json` together. The `--no-git-tag-version` matters: `npm version`
-otherwise creates its own commit and tag, and the commit message is the skill's job. Then stage the
-two manifests alongside the rest of the change so one commit carries both.
+Bump it with `pnpm version <minor|patch> --no-git-tag-version --no-git-checks`, then stage
+`package.json` with the rest of the change so one commit carries both. Both flags are required, and
+for different reasons: without `--no-git-tag-version` the command creates its own commit and tag, and
+the commit message is the skill's job; without `--no-git-checks` it aborts with
+`ERR_PNPM_UNCLEAN_WORKING_TREE`, because by the time the bump happens the change being committed is
+already in the tree (verified — npm had no such check, so this is new).
 
-`package.json` is the only source of the version — `electron-builder.yml` reads it from there and no
-code in `src/` displays it, so there is no third place to keep in sync.
+**Exactly one file changes.** `pnpm-lock.yaml` does not record the root package's own version, only
+its dependencies' (verified). `package.json` is the single source: `electron-builder.yml` reads it
+from there and no code in `src/` displays it. Do not reach for `npm version` — it would leave
+`package.json` bumped and try to maintain a `package-lock.json` this project no longer has.
