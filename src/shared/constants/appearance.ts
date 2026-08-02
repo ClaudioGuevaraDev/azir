@@ -7,4 +7,4 @@
  * looked complete. Main imports this; the stylesheet cannot, so `test/tokens.test.ts` reads
  * tokens.css and fails if the literal there has drifted from this one.
  */
-export const WINDOW_BACKGROUND = '#0a0d12';
+export const WINDOW_BACKGROUND = '#050506';

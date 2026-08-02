@@ -34,7 +34,7 @@
   flex: none;
   padding-right: var(--azir-space-3);
   border-right: 1px solid var(--azir-border-strong);
-  color: var(--azir-brass);
+  color: var(--azir-brand);
   font-size: var(--azir-text-xs);
   font-stretch: var(--azir-label-stretch);
   font-weight: 700;
@@ -128,4 +128,170 @@
 
 .shell__hint {
   margin-left: auto;
+}
+
+/* Cartographic chrome: a slim field header rather than an application title bar. */
+.shell {
+  grid-template-rows: 48px 1fr var(--azir-statusbar-height);
+  background:
+    linear-gradient(var(--azir-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--azir-grid) 1px, transparent 1px), var(--azir-bg);
+  background-size: 32px 32px;
+}
+
+.shell__bar {
+  position: relative;
+  padding: 0 14px 0 12px;
+  border-bottom-color: var(--azir-border-strong);
+  background: var(--azir-surface-glass);
+  backdrop-filter: blur(14px);
+}
+
+.shell__bar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--azir-accent), transparent 24%);
+  opacity: 0.55;
+}
+
+.shell__identity {
+  align-items: center;
+  gap: 12px;
+}
+
+.shell__mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--azir-brand);
+  color: var(--azir-brand);
+  font-family: var(--azir-font-mono);
+  letter-spacing: 0.08em;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+.shell__location {
+  display: grid;
+  grid-template-columns: auto minmax(80px, auto);
+  gap: 0 10px;
+  min-width: 0;
+}
+
+.shell__eyebrow {
+  grid-column: 1 / -1;
+  color: var(--azir-text-dim);
+  font-family: var(--azir-font-mono);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.shell__name {
+  color: var(--azir-text);
+  font-size: 14px;
+  letter-spacing: 0.015em;
+}
+
+.shell__root {
+  align-self: end;
+  max-width: min(34vw, 430px);
+  padding-left: 10px;
+  border-left: 1px solid var(--azir-border);
+  line-height: 1.3;
+}
+
+.shell__actions {
+  gap: 6px;
+}
+
+.shell__action,
+.shell__close {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 9px;
+  border-color: transparent;
+  background: transparent;
+  font-family: var(--azir-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.shell__action:hover,
+.shell__close:hover {
+  border-color: var(--azir-border-strong);
+  background: var(--azir-surface-hover);
+}
+
+.shell__close {
+  margin-left: 4px;
+  border-left-color: var(--azir-border);
+  color: var(--azir-warning);
+}
+
+.shell__status {
+  padding: 0;
+  border-top-color: var(--azir-border-strong);
+  background: var(--azir-surface-glass);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.shell__status > * {
+  height: 100%;
+  padding: 7px 12px 0;
+}
+
+.shell__status-lead {
+  position: relative;
+  padding-left: 29px !important;
+  color: var(--azir-accent);
+  font-weight: 700;
+}
+
+.shell__status-lead::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 13px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--azir-accent);
+  box-shadow: none;
+}
+
+.shell__focus::before {
+  content: 'FOCUS / ';
+  color: var(--azir-text-dim);
+}
+
+.shell__arrangement::before {
+  content: 'GRID / ';
+  color: var(--azir-text-dim);
+}
+
+@media (max-width: 720px) {
+  .shell__root,
+  .shell__action-label,
+  .shell__arrangement {
+    display: none;
+  }
+
+  .shell__actions {
+    gap: 1px;
+  }
+
+  .shell__action,
+  .shell__close {
+    padding: 0 7px;
+  }
 }

@@ -68,3 +68,28 @@
 .notice__dismiss:hover {
   color: var(--azir-text);
 }
+
+.notice {
+  position: relative;
+  border-radius: 0;
+  background: var(--azir-surface-glass);
+  backdrop-filter: blur(16px);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+}
+
+.notice::before {
+  content: 'FIELD SIGNAL';
+  position: absolute;
+  top: 3px;
+  right: 22px;
+  color: var(--azir-text-dim);
+  font-family: var(--azir-font-mono);
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+
+.notice__message {
+  padding-top: 5px;
+  font-family: var(--azir-font-mono);
+  font-size: 11px;
+}

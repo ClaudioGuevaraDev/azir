@@ -12,20 +12,23 @@
  * The first is the README's: colour is spent on the thing that carries
  * information — what changed. So the six git hues are the only ones allowed to
  * mean something inside a panel. The second falls out of it: the chrome cannot
- * borrow one of those hues, which is why the accent is cyan and why `renamed`
- * is now the only thing that is blue. They used to be the same hex.
+ * borrow one of those hues. The chrome is therefore achromatic: white marks
+ * focus and brand, while repository and diff states keep their established hues.
  */
 :root {
   /* --- Surfaces, from furthest back to closest to the user. */
-  --azir-bg: #0a0d12;
-  --azir-surface: #10151c;
-  --azir-surface-raised: #161d26;
-  --azir-surface-hover: #1c2531;
-  --azir-surface-active: #22303f;
+  --azir-bg: #050506;
+  --azir-surface: #0a0a0c;
+  --azir-surface-raised: #101114;
+  --azir-surface-hover: #17181c;
+  --azir-surface-active: #202126;
+  --azir-surface-glass: rgb(10 10 12 / 90%);
 
   /* --- Lines. `strong` is for focus and panel separation, not decoration. */
-  --azir-border: #1f2731;
-  --azir-border-strong: #33404f;
+  --azir-border: #202126;
+  --azir-border-strong: #383a40;
+  --azir-grid: rgb(255 255 255 / 4%);
+  --azir-grid-strong: rgb(255 255 255 / 9%);
 
   /*
    * --- Text. Four steps is enough for a dense tool; more invites drift.
@@ -36,55 +39,54 @@
    * under AA for text that small. The floor here is 4.5:1 with the step above
    * it kept far enough away that the hierarchy still reads.
    */
-  --azir-text: #dde4ee; /* 15.2:1 */
-  --azir-text-muted: #9daabb; /* 8.3:1 */
-  --azir-text-dim: #7c8798; /* 5.4:1 */
-  --azir-text-inverse: #0a0d12;
+  --azir-text: #f4f4f2;
+  --azir-text-muted: #b3b3b0;
+  --azir-text-dim: #83838a;
+  --azir-text-inverse: #050506;
 
   /*
    * --- Semantic accents. Each maps onto an ANSI hue below.
    *
-   * `brass` is the one colour with no job: it is the application's own mark,
-   * and it appears in exactly three places — the wordmark, the welcome screen
-   * and the keycaps in the help overlay. It is kept out of the workspace on
-   * purpose, because at 11px it would be read as `modified`.
+   * Azir is a white brand. `accent` is also neutral and means interaction,
+   * never status; actual colour remains reserved for semantic information.
    */
-  --azir-accent: #35c9e8; /* 9.9:1 on --azir-bg, so it survives as link text */
-  --azir-accent-hover: #5fd7f0;
-  --azir-accent-subtle: #0e2b33;
-  --azir-brass: #c98a3c;
-  --azir-success: #56cd80;
-  --azir-warning: #e2b447;
-  --azir-danger: #f4695d;
-  --azir-info: #35c9e8;
+  --azir-brand: #ffffff;
+  --azir-accent: #f4f4f2;
+  --azir-accent-hover: #ffffff;
+  --azir-accent-subtle: #1b1b1e;
+  --azir-brass: #f4f4f2;
+  --azir-success: #78dba2;
+  --azir-warning: #efbc61;
+  --azir-danger: #f0786d;
+  --azir-info: #78cfc4;
 
   /* --- Git status hues, used by the repository panel and the diff gutter. */
-  --azir-added: #56cd80;
-  --azir-modified: #e2b447;
-  --azir-deleted: #f4695d;
-  --azir-untracked: #7c8798;
-  --azir-renamed: #5aa4ff;
-  --azir-conflict: #d980ea;
+  --azir-added: #78dba2;
+  --azir-modified: #efbc61;
+  --azir-deleted: #f0786d;
+  --azir-untracked: #83978f;
+  --azir-renamed: #76b8d6;
+  --azir-conflict: #d995c7;
 
   /* --- The xterm.js palette. Handed to the Terminal constructor verbatim. */
-  --azir-ansi-black: #0a0d12;
-  --azir-ansi-red: #f4695d;
-  --azir-ansi-green: #56cd80;
-  --azir-ansi-yellow: #e2b447;
-  --azir-ansi-blue: #5aa4ff;
-  --azir-ansi-magenta: #d980ea;
-  --azir-ansi-cyan: #35c9e8;
-  --azir-ansi-white: #dde4ee;
-  --azir-ansi-bright-black: #7c8798;
+  --azir-ansi-black: #050506;
+  --azir-ansi-red: #f0786d;
+  --azir-ansi-green: #78dba2;
+  --azir-ansi-yellow: #efbc61;
+  --azir-ansi-blue: #76b8d6;
+  --azir-ansi-magenta: #d995c7;
+  --azir-ansi-cyan: #78cfc4;
+  --azir-ansi-white: #e4ece5;
+  --azir-ansi-bright-black: #7f998f;
   --azir-ansi-bright-red: #ff8a7f;
   --azir-ansi-bright-green: #7ce09f;
   --azir-ansi-bright-yellow: #f2cc6b;
   --azir-ansi-bright-blue: #85bdff;
   --azir-ansi-bright-magenta: #eaa6f5;
-  --azir-ansi-bright-cyan: #74dcf2;
+  --azir-ansi-bright-cyan: #a2e3dc;
   --azir-ansi-bright-white: #f2f6fb;
-  --azir-cursor: #35c9e8;
-  --azir-selection: #1c3742;
+  --azir-cursor: #f4f4f2;
+  --azir-selection: #303036;
 
   /*
    * --- Type. Monospace for anything a shell or a file produced.
@@ -127,12 +129,12 @@
   --azir-space-6: 24px;
   --azir-space-7: 32px;
 
-  --azir-radius-sm: 3px;
-  --azir-radius-md: 5px;
-  --azir-radius-lg: 8px;
+  --azir-radius-sm: 2px;
+  --azir-radius-md: 4px;
+  --azir-radius-lg: 6px;
 
-  --azir-panel-header-height: 30px;
-  --azir-statusbar-height: 24px;
+  --azir-panel-header-height: 34px;
+  --azir-statusbar-height: 27px;
   /*
    * The code font size and its row height are *settings*, so these two are only the values
    * used before settings arrive. Both are overwritten on the root element from renderer state
@@ -150,8 +152,8 @@
    * panel does not, and casting one would be a lie about the layout.
    */
   --azir-hairline-top: inset 0 1px 0 rgb(255 255 255 / 5%);
-  --azir-shadow-overlay: 0 24px 64px -16px rgb(0 0 0 / 75%);
-  --azir-shadow-notice: 0 10px 28px -12px rgb(0 0 0 / 65%);
+  --azir-shadow-overlay: 0 32px 80px -18px rgb(0 0 0 / 82%);
+  --azir-shadow-notice: 0 14px 36px -14px rgb(0 0 0 / 72%);
 
   --azir-transition-fast: 90ms ease-out;
   /* Decelerating, for the one entrance the window plays. Never for a hover. */

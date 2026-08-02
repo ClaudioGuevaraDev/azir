@@ -16,7 +16,10 @@ body,
 }
 
 body {
-  background: var(--azir-bg);
+  background:
+    linear-gradient(var(--azir-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--azir-grid) 1px, transparent 1px), var(--azir-bg);
+  background-size: 32px 32px;
   color: var(--azir-text);
   font-family: var(--azir-font-ui);
   font-size: var(--azir-text-md);
@@ -49,6 +52,15 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: default;
+}
+
+::selection {
+  background: var(--azir-selection);
+  color: var(--azir-text);
+}
+
 :focus-visible {
   outline: 2px solid var(--azir-accent);
   outline-offset: 1px;
@@ -69,6 +81,15 @@ button {
 @keyframes azir-fade {
   from {
     opacity: 0;
+  }
+}
+
+@keyframes azir-scan {
+  from {
+    transform: translateX(-105%);
+  }
+  to {
+    transform: translateX(105%);
   }
 }
 

@@ -80,6 +80,9 @@ export const OverlayHost = (): React.JSX.Element | null => {
         onClick={(event) => event.stopPropagation()}
       >
         <header className="overlay__header">
+          <span className="overlay__index" aria-hidden="true">
+            FIELD SHEET / {overlay.type.toUpperCase()}
+          </span>
           <h2 className="overlay__title">{TITLES[overlay.type]}</h2>
           <button
             type="button"

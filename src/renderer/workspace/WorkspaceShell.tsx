@@ -81,14 +81,17 @@ export const WorkspaceShell = ({
             before the folder name learns nothing it did not have.
           */}
           <span className="shell__mark" aria-hidden="true">
-            Azir
+            AZIR
           </span>
-          <span className="shell__name" data-testid="workspace-name">
-            {info.name}
-          </span>
-          <span className="shell__root azir-selectable" title={info.root}>
-            {info.root}
-          </span>
+          <div className="shell__location">
+            <span className="shell__eyebrow">Observation field / active terrain</span>
+            <span className="shell__name" data-testid="workspace-name">
+              {info.name}
+            </span>
+            <span className="shell__root azir-selectable" title={info.root}>
+              {info.root}
+            </span>
+          </div>
         </div>
 
         <div className="shell__actions">
@@ -98,7 +101,8 @@ export const WorkspaceShell = ({
             data-testid="open-settings"
             onClick={() => dispatch({ type: 'overlay/opened', overlay: { type: 'settings' } })}
           >
-            Settings
+            <span aria-hidden="true">⌘</span>
+            <span>Settings</span>
           </button>
           <button
             type="button"
@@ -106,7 +110,8 @@ export const WorkspaceShell = ({
             data-testid="open-help"
             onClick={() => dispatch({ type: 'overlay/opened', overlay: { type: 'help' } })}
           >
-            ?
+            <span aria-hidden="true">?</span>
+            <span className="shell__action-label">Guide</span>
           </button>
           <button
             type="button"
@@ -114,7 +119,8 @@ export const WorkspaceShell = ({
             data-testid="close-workspace"
             onClick={() => dispatch({ type: 'workspace/closeRequested' })}
           >
-            Close workspace
+            <span aria-hidden="true">↙</span>
+            <span>Exit field</span>
           </button>
         </div>
       </header>
@@ -122,14 +128,17 @@ export const WorkspaceShell = ({
       <WorkspaceLayout render={renderPanel} />
 
       <footer className="shell__status">
-        <span className="shell__session">session {info.sessionId}</span>
+        <span className="shell__status-lead">LIVE MAP</span>
+        <span className="shell__session">
+          SECTOR {String(info.sessionId).padStart(2, '0')} / session {info.sessionId}
+        </span>
         <span className="shell__focus" data-testid="status-focus">
           {focused}
         </span>
         <span className="shell__arrangement" data-testid="status-arrangement">
           {layout.settings.arrangement}
         </span>
-        <span className="shell__hint">F1 for shortcuts</span>
+        <span className="shell__hint">F1 FIELD GUIDE</span>
       </footer>
 
       <OverlayHost />

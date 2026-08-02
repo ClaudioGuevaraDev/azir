@@ -23,10 +23,22 @@ export const WelcomeScreen = ({ busy, error }: WelcomeScreenProps): React.JSX.El
     <main className="welcome" data-testid="welcome">
       {/* Inert, and behind everything: the instrument grid and the horizon it fades into. */}
       <div className="welcome__field" aria-hidden="true" />
+      <div className="welcome__contours" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
 
       <div className="welcome__content">
+        <div className="welcome__coordinates" aria-hidden="true">
+          33°27′S / 70°40′W · OBSERVATION FIELD 00
+        </div>
         <h1 className="welcome__title">Azir</h1>
-        <p className="welcome__tagline">Supervision workspace for software agents</p>
+        <p className="welcome__tagline">
+          <span>Map the work.</span>
+          <span>Watch the agent.</span>
+          <span>Intervene with intent.</span>
+        </p>
 
         <button
           type="button"
@@ -35,11 +47,17 @@ export const WelcomeScreen = ({ busy, error }: WelcomeScreenProps): React.JSX.El
           data-testid="open-workspace"
           onClick={() => dispatch({ type: 'workspace/openRequested' })}
         >
-          {busy ? 'Opening…' : 'Open folder…'}
+          <span className="welcome__action-index" aria-hidden="true">
+            01
+          </span>
+          <span>{busy ? 'Surveying…' : 'Map a workspace'}</span>
+          <span className="welcome__action-arrow" aria-hidden="true">
+            ↗
+          </span>
         </button>
 
         <p className="welcome__hint" aria-hidden="true">
-          no workspace open
+          Awaiting terrain coordinates
         </p>
 
         {error && (

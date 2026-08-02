@@ -213,3 +213,118 @@
   color: var(--azir-text-dim);
   font-size: var(--azir-text-xs);
 }
+
+/* Terrain layer */
+.tree {
+  border-right-color: var(--azir-border-strong);
+  background:
+    linear-gradient(90deg, transparent 0 23px, var(--azir-grid) 24px, transparent 25px),
+    var(--azir-surface);
+}
+
+.tree__header {
+  border-bottom-color: var(--azir-border-strong);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--azir-accent) 6%, transparent), transparent 38%),
+    var(--azir-surface-raised);
+}
+
+.tree__view {
+  position: relative;
+  padding: 0 12px;
+  font-family: var(--azir-font-mono);
+  font-size: 9px;
+}
+
+.tree__view[data-active='true'] {
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--azir-accent);
+  color: var(--azir-accent);
+}
+
+.tree__view[data-active='true']::before {
+  content: '●';
+  margin-right: 6px;
+  font-size: 6px;
+}
+
+.tree__git {
+  min-height: 31px;
+  padding-left: 12px;
+  border-bottom-style: dashed;
+  background: color-mix(in srgb, var(--azir-surface-raised) 72%, transparent);
+  letter-spacing: 0.025em;
+}
+
+.tree__branch::before {
+  content: '⌁ ';
+  color: var(--azir-accent);
+}
+
+.tree__row {
+  position: relative;
+  gap: 5px;
+  padding-right: 8px;
+  transition:
+    background var(--azir-transition-fast),
+    color var(--azir-transition-fast);
+}
+
+.tree__row::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  left: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--azir-grid), transparent 70%);
+}
+
+.tree__row:hover {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--azir-accent) 10%, transparent),
+      transparent 72%
+    ),
+    var(--azir-surface-hover);
+}
+
+.tree__row[data-selected='true'] {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--azir-accent) 16%, transparent),
+      transparent 82%
+    ),
+    var(--azir-surface-active);
+  box-shadow:
+    inset 2px 0 0 var(--azir-accent),
+    inset 9px 0 0 color-mix(in srgb, var(--azir-accent) 5%, transparent);
+}
+
+.tree__chevron {
+  color: var(--azir-accent);
+  font-family: var(--azir-font-mono);
+}
+
+.tree__badge {
+  min-width: 18px;
+  padding: 1px 4px;
+  border: 1px solid currentColor;
+  text-align: center;
+  line-height: 13px;
+}
+
+.tree__nested {
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+.tree__empty {
+  margin: 16px;
+  border-left: 1px solid var(--azir-border-strong);
+  background: linear-gradient(90deg, var(--azir-grid), transparent);
+  font-family: var(--azir-font-mono);
+  line-height: 1.6;
+}
