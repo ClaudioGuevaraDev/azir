@@ -1,49 +1,113 @@
+/*
+ * The only emphatic screen in the application, and the argument for that is in WelcomeScreen.tsx.
+ * Everything here is off by the time a workspace opens.
+ */
+/*
+ * The light is on the screen itself and the ruling is on the layer above it. They were one element
+ * to begin with, and the mask that stops the grid short of the edges was also erasing the glow it
+ * was supposed to be lit by — measured at roughly 3% alpha where it should have been the brightest
+ * thing on the screen. Separating them lets each be shaped by what it is for.
+ */
 .welcome {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   height: 100%;
   background:
-    radial-gradient(ellipse at 50% 0%, var(--azir-surface) 0%, transparent 70%), var(--azir-bg);
+    radial-gradient(
+      90% 40% at 50% 108%,
+      color-mix(in srgb, var(--azir-brass) 22%, transparent) 0%,
+      transparent 68%
+    ),
+    radial-gradient(80% 60% at 50% -8%, var(--azir-surface) 0%, transparent 70%), var(--azir-bg);
 }
 
-.welcome__card {
-  min-width: 360px;
-  padding: var(--azir-space-6) var(--azir-space-7);
-  border: 1px solid var(--azir-border);
-  border-radius: var(--azir-radius-lg);
-  background: var(--azir-surface);
+/*
+ * A ruled field, masked to nothing before it reaches any edge — a grid that ends in a straight line
+ * reads as a texture that ran out, which is the one thing worse than no texture. The rules are a
+ * lightening of the background rather than a colour of their own, so the screen stays one surface.
+ */
+.welcome__field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to right, rgb(255 255 255 / 4%) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(to bottom, rgb(255 255 255 / 4%) 0 1px, transparent 1px 64px);
+  mask-image: radial-gradient(70% 65% at 50% 45%, #000 15%, transparent 100%);
+  animation: azir-fade 700ms ease-out both;
+}
+
+.welcome__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 var(--azir-space-7);
   text-align: center;
 }
 
+/*
+ * The wordmark, and the one place the width axis is pushed to its condensed end at a size where
+ * that is legible as a decision. Brass rather than the accent: the accent means "focused" and
+ * "active" everywhere else in the window, and this means neither.
+ */
 .welcome__title {
   margin: 0;
-  font-size: var(--azir-text-xl);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  color: var(--azir-brass);
+  /* Clamped rather than fixed: the window's floor is 400px wide, and 64px of tracked-out
+     wordmark does not fit inside it. */
+  font-size: clamp(34px, 6.5vw, 72px);
+  font-stretch: 68%;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  /* Tracking adds space after the last letter too, which throws the block off centre. */
+  text-indent: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+  animation: azir-rise 520ms var(--azir-ease-entrance) both;
 }
 
 .welcome__tagline {
-  margin: var(--azir-space-2) 0 var(--azir-space-6);
+  margin: var(--azir-space-4) 0 var(--azir-space-7);
+  padding-top: var(--azir-space-4);
+  border-top: 1px solid var(--azir-border);
   color: var(--azir-text-muted);
   font-size: var(--azir-text-sm);
+  font-stretch: var(--azir-label-stretch);
+  letter-spacing: var(--azir-label-tracking);
+  text-transform: uppercase;
+  animation: azir-rise 520ms var(--azir-ease-entrance) 90ms both;
 }
 
 .welcome__action {
-  padding: var(--azir-space-3) var(--azir-space-5);
+  min-width: 220px;
+  padding: var(--azir-space-3) var(--azir-space-6);
   border: 1px solid var(--azir-accent);
   border-radius: var(--azir-radius-md);
   background: var(--azir-accent-subtle);
   color: var(--azir-text);
   font-size: var(--azir-text-md);
+  font-weight: 600;
+  animation: azir-rise 520ms var(--azir-ease-entrance) 180ms both;
   transition:
     background var(--azir-transition-fast),
-    border-color var(--azir-transition-fast);
+    border-color var(--azir-transition-fast),
+    box-shadow var(--azir-transition-fast);
 }
 
 .welcome__action:hover:not(:disabled) {
-  background: var(--azir-surface-active);
   border-color: var(--azir-accent-hover);
+  background: var(--azir-surface-active);
+  /* The only glow in the application, on the only control on the screen. */
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--azir-accent) 12%, transparent);
+}
+
+.welcome__action:active:not(:disabled) {
+  background: var(--azir-accent-subtle);
+  box-shadow: none;
 }
 
 .welcome__action:disabled {
@@ -53,9 +117,20 @@
   cursor: default;
 }
 
+.welcome__hint {
+  margin: var(--azir-space-5) 0 0;
+  color: var(--azir-text-dim);
+  font-family: var(--azir-font-mono);
+  font-size: var(--azir-text-xs);
+  letter-spacing: 0.04em;
+  animation: azir-fade 520ms ease-out 300ms both;
+}
+
 .welcome__error {
-  margin: var(--azir-space-4) 0 0;
+  margin: var(--azir-space-5) 0 0;
+  max-width: 48ch;
   color: var(--azir-danger);
   font-family: var(--azir-font-mono);
   font-size: var(--azir-text-xs);
+  line-height: 1.5;
 }

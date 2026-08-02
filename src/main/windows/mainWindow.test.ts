@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WINDOW_BACKGROUND } from '@shared/constants/appearance';
 
 /**
  * docs/architecture.md lists the Electron security settings as mandatory
@@ -89,7 +90,7 @@ describe('createMainWindow', () => {
     createMainWindow();
 
     expect(constructed[0]?.show).toBe(false);
-    expect(constructed[0]?.backgroundColor).toBe('#0b0d10');
+    expect(constructed[0]?.backgroundColor).toBe(WINDOW_BACKGROUND);
   });
 
   it('loads the packaged bundle from disk when no dev server is present', () => {

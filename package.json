@@ -1,6 +1,6 @@
 {
   "name": "azir",
-  "version": "0.0.6",
+  "version": "0.1.0",
   "private": true,
   "description": "Desktop supervision tool for software agents",
   "license": "MIT",

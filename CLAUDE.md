@@ -181,6 +181,24 @@ because the manifest no longer carries any hint that a newer version was accepta
 - **The install-script denials are written twice**, once per package manager, and must agree:
   `allowScripts` in `package.json` (npm 12) and `allowBuilds` in `pnpm-workspace.yaml` (pnpm 11).
   The observable check is that `node_modules/node-pty/build/` never exists.
+- **Fonts must finish loading before React mounts.** `src/renderer/main.tsx` waits on
+  `document.fonts.ready`, and that is load-bearing: xterm.js measures a character when a
+  `Terminal` is constructed and keeps the result for the pane's life, so mounting early sizes the
+  grid to the fallback font and then draws Iosevka into it. The symptom is a permanently misaligned
+  terminal that no resize fixes. The faces themselves are vendored `.woff2` under
+  `src/renderer/assets/fonts/` (with the subsetting command in that directory's README) and inlined
+  as `data:` URIs, because a packaged build is `file://` and `font-src 'self'` is unreliable there.
+- **Do not measure terminal glyph widths with a bare `<span>`.** 410 glyphs in the shipped Iosevka
+  subset carry the double advance, `→` and `✓` among them, and an unconstrained span reports 12px
+  for those at 12px type. It does not matter: xterm sizes the cell and lays the glyph into it, and
+  ten cells of `0`, `→`, `✓`, `─`, `⠋`, `●` and `█` each measure exactly 60px in the running window.
+  Measure rendered `.xterm-rows` children, not a detached probe.
+- **`tokens.css` is pinned by `test/tokens.test.ts`**, which reads the stylesheet as text. It
+  asserts `--azir-bg` still equals `WINDOW_BACKGROUND` in `@shared/constants/appearance` (main
+  paints that before the renderer has a frame), that the three text steps and the accent clear
+  4.5:1 on both `--azir-bg` and `--azir-surface`, and that the chrome accent is not one of the six
+  git hues — accent and `renamed` were the same hex once, which is what the README's "colour is
+  spent on what changed" forbids.
 - **`"type": "commonjs"` is required** (CJS preload for `sandbox: true`, node-pty's helper
   resolution, `__dirname` for the packaged `loadFile`). No top-level `await` in main; `bootstrap()`
   absorbs it.

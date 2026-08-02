@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { BrowserWindow } from 'electron';
+import { WINDOW_BACKGROUND } from '@shared/constants/appearance';
 import { applyWindowSecurity } from './security';
 
 /**
@@ -17,9 +18,6 @@ export const SECURE_WEB_PREFERENCES = {
   spellcheck: false,
 } as const;
 
-/** Matches --background-color and tokens.css so startup has no white flash. */
-const BACKGROUND = '#0b0d10';
-
 export const createMainWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
     width: 1440,
@@ -33,7 +31,9 @@ export const createMainWindow = (): BrowserWindow => {
     // visible before expensive workspace work finishes, and an unpainted window
     // is worse than a slightly later one.
     show: false,
-    backgroundColor: BACKGROUND,
+    // Painted before the renderer has a frame, so it must be tokens.css's --azir-bg or startup
+    // flashes a different dark. See @shared/constants/appearance and test/tokens.test.ts.
+    backgroundColor: WINDOW_BACKGROUND,
     autoHideMenuBar: true,
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : {}),
     webPreferences: {

@@ -75,6 +75,14 @@ export const WorkspaceShell = ({
     <div className="shell" data-testid="workspace-shell">
       <header className="shell__bar">
         <div className="shell__identity">
+          {/*
+            The one piece of chrome that is not about the workspace. It is `aria-hidden` because
+            the window title already announces the application, and a screen reader meeting "AZIR"
+            before the folder name learns nothing it did not have.
+          */}
+          <span className="shell__mark" aria-hidden="true">
+            Azir
+          </span>
           <span className="shell__name" data-testid="workspace-name">
             {info.name}
           </span>

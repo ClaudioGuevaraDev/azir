@@ -131,6 +131,21 @@ Settings live in `pnpm-workspace.yaml` and there is **no `.npmrc`**. pnpm 11 rea
 auth and registry from `.npmrc`; a `node-linker=hoisted` line there is ignored without a
 word, which is worse than absent — config that looks authoritative and governs nothing.
 
+**Fonts are checked in, not installed, and inlined, not emitted.** Iosevka and Archivo live
+as four `.woff2` files under `src/renderer/assets/fonts/`, with their licences and the
+`pyftsubset` command that produced them. They are not dependencies for the same reason
+nothing else carries a range: a font that resolves differently on a different day changes how
+the window measures itself. `assetsInlineLimit` in `electron.vite.config.ts` turns them into
+`data:` URIs — a packaged renderer is loaded with `loadFile`, so its origin is `file://`, and
+`font-src 'self'` against `file://` is not something Chromium commits to, while `data:` is
+already in both policies. It costs ~470 kB of base64 in one stylesheet and removes an entire
+class of "worked in dev, blank in the package".
+
+The consequence to know about is in `src/renderer/main.tsx`: React does not mount until
+`document.fonts.ready` settles. xterm.js measures a character once, when a `Terminal` is
+constructed, and keeps it — mount early and the first pane sizes its grid to Consolas and then
+draws Iosevka into it, with no event afterwards that would correct it.
+
 ## Native modules
 
 `node-pty@1.1.0` is **Node-API** based and ships prebuilt binaries in its

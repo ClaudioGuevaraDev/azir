@@ -11,7 +11,8 @@
   align-items: stretch;
   overflow-x: auto;
   border-bottom: 1px solid var(--azir-border);
-  background: var(--azir-surface);
+  background: var(--azir-surface-raised);
+  box-shadow: var(--azir-hairline-top);
 }
 
 .viewer__tabs::-webkit-scrollbar {
@@ -25,8 +26,17 @@
   border-right: 1px solid var(--azir-border);
   color: var(--azir-text-muted);
   font-size: var(--azir-text-xs);
+  transition: background var(--azir-transition-fast);
 }
 
+.viewer__tab:hover:not([data-active='true']) {
+  background: var(--azir-surface-hover);
+}
+
+/*
+ * The active tab drops to the body's own colour and loses its lit top edge, so the strip reads as
+ * one tab opened onto the panel below rather than three buttons with one of them coloured in.
+ */
 .viewer__tab[data-active='true'] {
   background: var(--azir-bg);
   color: var(--azir-text);
@@ -73,12 +83,18 @@
   background: var(--azir-accent-subtle);
   color: var(--azir-text);
   font-size: var(--azir-text-xs);
+  transition: background var(--azir-transition-fast);
+}
+
+.viewer__save:hover:not(:disabled) {
+  background: var(--azir-surface-active);
 }
 
 .viewer__save:disabled {
   border-color: var(--azir-border-strong);
   background: none;
   color: var(--azir-text-dim);
+  cursor: default;
 }
 
 .viewer__save-error {
@@ -109,6 +125,7 @@
   color: var(--azir-text-dim);
   font-size: var(--azir-text-md);
   line-height: 1;
+  transition: color var(--azir-transition-fast);
 }
 
 .viewer__close:hover {
@@ -148,6 +165,9 @@
   padding: 1px var(--azir-space-3);
   color: var(--azir-text-dim);
   font-size: var(--azir-text-xs);
+  transition:
+    background var(--azir-transition-fast),
+    color var(--azir-transition-fast);
 }
 
 .viewer__mode[data-active='true'] {
@@ -156,6 +176,7 @@
 }
 
 .viewer__mode:hover:not([data-active='true']) {
+  background: var(--azir-surface-hover);
   color: var(--azir-text);
 }
 
@@ -214,6 +235,11 @@
 
 .code__line[data-current='true'] {
   background: var(--azir-surface);
+}
+
+/* The caret's row also brightens its own number, so the eye can find the line in the gutter. */
+.code__line[data-current='true'] .code__gutter {
+  color: var(--azir-text-muted);
 }
 
 /*
@@ -290,8 +316,14 @@
   user-select: none;
 }
 
+/*
+ * The tint carries the change and the text carries the hue; the rail on the leading edge is what
+ * survives being read at a glance down a long hunk, where a 14% wash over a dark ink is close to
+ * the limit of what registers in peripheral vision. This is the panel colour is *for*.
+ */
 .diff__line[data-kind='add'] {
-  background: color-mix(in srgb, var(--azir-added) 12%, transparent);
+  background: color-mix(in srgb, var(--azir-added) 14%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--azir-added) 60%, transparent);
 }
 
 .diff__line[data-kind='add'] .diff__mark,
@@ -300,7 +332,8 @@
 }
 
 .diff__line[data-kind='remove'] {
-  background: color-mix(in srgb, var(--azir-deleted) 12%, transparent);
+  background: color-mix(in srgb, var(--azir-deleted) 14%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--azir-deleted) 60%, transparent);
 }
 
 .diff__line[data-kind='remove'] .diff__mark,

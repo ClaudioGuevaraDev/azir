@@ -100,6 +100,15 @@ export default defineConfig({
     build: {
       outDir: r('out/renderer'),
       emptyOutDir: true,
+      /*
+       * Fonts go in as data: URIs rather than emitted files. A packaged build is loaded with
+       * `loadFile`, so the document's origin is `file://`, and `font-src 'self'` against a
+       * `file://` origin is not something Chromium commits to. Both policies above already list
+       * `data:`, so this is the one path the CSP actually promises — and it also sidesteps
+       * resolving asset paths from inside the asar. The four faces cost ~470 kB of base64 in the
+       * stylesheet, which for a window with no network is the cheaper half of the trade.
+       */
+      assetsInlineLimit: (filePath: string) => (filePath.endsWith('.woff2') ? true : undefined),
       rollupOptions: {
         input: { index: r('src/renderer/index.html') },
       },

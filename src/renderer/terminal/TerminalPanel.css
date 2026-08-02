@@ -12,7 +12,8 @@
   gap: 1px;
   overflow-x: auto;
   border-bottom: 1px solid var(--azir-border);
-  background: var(--azir-surface);
+  background: var(--azir-surface-raised);
+  box-shadow: var(--azir-hairline-top);
 }
 
 .terminals__tabs::-webkit-scrollbar {
@@ -24,9 +25,14 @@
   align-items: center;
   flex: none;
   border-right: 1px solid var(--azir-border);
-  background: var(--azir-surface);
+  background: var(--azir-surface-raised);
   color: var(--azir-text-muted);
   font-size: var(--azir-text-xs);
+  transition: background var(--azir-transition-fast);
+}
+
+.terminals__tab:hover:not([data-active='true']) {
+  background: var(--azir-surface-hover);
 }
 
 .terminals__tab[data-active='true'] {
@@ -68,6 +74,7 @@
   color: var(--azir-text-dim);
   font-size: var(--azir-text-md);
   line-height: 1;
+  transition: color var(--azir-transition-fast);
 }
 
 .terminals__close:hover {
@@ -80,6 +87,9 @@
   color: var(--azir-text-dim);
   font-size: var(--azir-text-lg);
   line-height: 1;
+  transition:
+    color var(--azir-transition-fast),
+    background var(--azir-transition-fast);
 }
 
 .terminals__add:hover:not(:disabled) {

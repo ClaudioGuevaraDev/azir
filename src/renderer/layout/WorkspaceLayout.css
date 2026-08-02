@@ -12,10 +12,20 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  /* Seams between panels, drawn by the slot so the panels stay ignorant of neighbours. */
-  box-shadow:
-    inset -1px 0 0 var(--azir-border),
-    inset 0 -1px 0 var(--azir-border);
+  /*
+   * Plays once, when a workspace resolves. Slots are not remounted by a resize or a rearrangement
+   * — the engine moves the same elements — so this cannot become an animation that fires whenever
+   * the window is dragged.
+   */
+  animation: azir-fade 220ms var(--azir-ease-entrance) both;
+}
+
+.stage__slot:nth-child(2) {
+  animation-delay: 50ms;
+}
+
+.stage__slot:nth-child(3) {
+  animation-delay: 100ms;
 }
 
 .stage__slot > * {
@@ -24,13 +34,35 @@
 }
 
 /*
+ * Seams between panels and the focus mark, drawn by the slot so the panels stay ignorant of
+ * neighbours — and drawn on an overlay rather than as the slot's own inset shadow, because an
+ * inset shadow paints under the element's descendants and every panel fills its slot with an
+ * opaque background. The overlay is inert; nothing in it can take a click away from the panel.
+ */
+.stage__slot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  box-shadow:
+    inset -1px 0 0 var(--azir-border),
+    inset 0 -1px 0 var(--azir-border);
+}
+
+/*
  * The focused panel is marked, not highlighted: a supervision tool is read constantly and a
  * glowing border on a third of the window is noise. It matters because Ctrl+1/2/3 move focus
  * and the degraded layout keeps the focused panel — so the user has to be able to tell.
+ *
+ * The rail is seated on a dark line rather than laid straight onto the panel. That is not a second
+ * signal: 2px of a light hue meeting a mid-dark surface with nothing between reads as if it were
+ * hovering a pixel off the edge it is meant to be marking.
  */
-.stage__slot[data-focused='true'] {
+.stage__slot[data-focused='true']::after {
   box-shadow:
+    inset 2px 0 0 var(--azir-accent),
+    inset 3px 0 0 var(--azir-bg),
     inset -1px 0 0 var(--azir-border),
-    inset 0 -1px 0 var(--azir-border),
-    inset 2px 0 0 var(--azir-accent);
+    inset 0 -1px 0 var(--azir-border);
 }

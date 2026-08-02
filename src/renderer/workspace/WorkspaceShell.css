@@ -13,6 +13,8 @@
   padding: 0 var(--azir-space-4);
   border-bottom: 1px solid var(--azir-border);
   background: var(--azir-surface);
+  /* Lit from directly above, which is what separates a bar from a lighter rectangle. */
+  box-shadow: var(--azir-hairline-top);
   min-width: 0;
 }
 
@@ -21,6 +23,23 @@
   align-items: baseline;
   gap: var(--azir-space-3);
   min-width: 0;
+}
+
+/*
+ * The application's mark, and one of the three places brass is allowed to appear. Set in the
+ * condensed end of the width axis so it reads as stamped rather than typed, and small enough that
+ * the workspace name next to it is still the thing being named.
+ */
+.shell__mark {
+  flex: none;
+  padding-right: var(--azir-space-3);
+  border-right: 1px solid var(--azir-border-strong);
+  color: var(--azir-brass);
+  font-size: var(--azir-text-xs);
+  font-stretch: var(--azir-label-stretch);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .shell__name {
@@ -52,29 +71,59 @@
   padding: var(--azir-space-1) var(--azir-space-3);
   border: 1px solid var(--azir-border-strong);
   border-radius: var(--azir-radius-sm);
+  background: var(--azir-surface-raised);
   color: var(--azir-text-muted);
   font-size: var(--azir-text-xs);
   transition:
     color var(--azir-transition-fast),
-    border-color var(--azir-transition-fast);
+    border-color var(--azir-transition-fast),
+    background var(--azir-transition-fast);
 }
 
 .shell__action:hover,
 .shell__close:hover {
-  color: var(--azir-text);
   border-color: var(--azir-text-dim);
+  background: var(--azir-surface-hover);
+  color: var(--azir-text);
+}
+
+/* Pressed reads as pressed in, not as a second hover: the light comes off the top edge. */
+.shell__action:active,
+.shell__close:active {
+  background: var(--azir-surface);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 35%);
 }
 
 .shell__status {
   display: flex;
   align-items: center;
-  gap: var(--azir-space-4);
   padding: 0 var(--azir-space-4);
   border-top: 1px solid var(--azir-border);
   background: var(--azir-surface);
+  box-shadow: var(--azir-hairline-top);
   color: var(--azir-text-dim);
   font-family: var(--azir-font-mono);
   font-size: var(--azir-text-xs);
+}
+
+/*
+ * Fields are divided by a rule rather than by a gap. Four monospaced fragments spaced apart read
+ * as a sentence with words missing; the same four in cells read as a readout, which is what they
+ * are. The divider is drawn with a border so no element has to know it is first.
+ */
+.shell__status > * {
+  padding: 0 var(--azir-space-4);
+  border-left: 1px solid var(--azir-border);
+}
+
+.shell__status > :first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.shell__focus,
+.shell__arrangement {
+  color: var(--azir-text-muted);
 }
 
 .shell__hint {

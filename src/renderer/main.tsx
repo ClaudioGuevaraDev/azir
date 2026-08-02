@@ -53,10 +53,34 @@ startEventPump({
  */
 store.dispatch({ type: 'settings/loadRequested' });
 
-createRoot(container).render(
-  <StrictMode>
-    <StoreProvider store={store}>
-      <App registry={registry} transport={bridge.terminal} />
-    </StoreProvider>
-  </StrictMode>,
-);
+const mount = (): void => {
+  createRoot(container).render(
+    <StrictMode>
+      <StoreProvider store={store}>
+        <App registry={registry} transport={bridge.terminal} />
+      </StoreProvider>
+    </StrictMode>,
+  );
+};
+
+/*
+ * React waits for the vendored faces before it mounts, which is not the usual advice and is not
+ * about avoiding a flash of the fallback.
+ *
+ * xterm.js measures a character once, when a Terminal is constructed, and that measurement becomes
+ * the pane's grid for as long as it lives. Mount while Iosevka is still arriving and the first
+ * terminal measures Consolas, then draws Iosevka into cells sized for something else — every row
+ * bent, and no event afterwards to correct it. The window is already on screen by now, painted in
+ * --azir-bg by `backgroundColor` in main/windows/mainWindow.ts, so what this costs is a few
+ * milliseconds of an empty dark window rather than a white flash.
+ *
+ * The timeout is not there to make it faster. `document.fonts.ready` settles whether the faces
+ * load or fail, so reaching the deadline means something pathological happened — and rendering in
+ * the fallback stack is a far better answer to that than a window that never appears.
+ */
+const FONT_DEADLINE_MS = 2000;
+
+void Promise.race([
+  document.fonts.ready,
+  new Promise((resolve) => setTimeout(resolve, FONT_DEADLINE_MS)),
+]).then(mount);

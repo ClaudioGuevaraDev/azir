@@ -12,21 +12,28 @@
   align-items: stretch;
   justify-content: space-between;
   border-bottom: 1px solid var(--azir-border);
+  background: var(--azir-surface-raised);
+  box-shadow: var(--azir-hairline-top);
 }
 
 .tree__views {
   display: flex;
 }
 
+/* An instrument marking rather than a word: condensed, tracked out, upper case. */
 .tree__view {
   padding: 0 var(--azir-space-4);
   color: var(--azir-text-dim);
   font-size: var(--azir-text-xs);
-  letter-spacing: 0.03em;
+  font-stretch: var(--azir-label-stretch);
+  font-weight: var(--azir-label-weight);
+  letter-spacing: var(--azir-label-tracking);
   text-transform: uppercase;
+  transition: color var(--azir-transition-fast);
 }
 
 .tree__view[data-active='true'] {
+  background: var(--azir-surface);
   color: var(--azir-text);
   box-shadow: inset 0 -2px 0 var(--azir-accent);
 }
@@ -39,6 +46,7 @@
   padding: 0 var(--azir-space-3);
   color: var(--azir-text-dim);
   font-size: var(--azir-text-md);
+  transition: color var(--azir-transition-fast);
 }
 
 .tree__refresh:hover {
@@ -112,8 +120,13 @@
   color: var(--azir-text);
 }
 
+/*
+ * Selection is marked on the leading edge as well as filled. The fill alone survives a hover
+ * landing on a different row — the rail is what still says which row the viewer is showing.
+ */
 .tree__row[data-selected='true'] {
   background: var(--azir-surface-active);
+  box-shadow: inset 2px 0 0 var(--azir-accent);
   color: var(--azir-text);
 }
 
@@ -157,7 +170,7 @@
   flex: none;
   margin-left: auto;
   padding-left: var(--azir-space-2);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* A change that exists only in the index is real but already dealt with. */

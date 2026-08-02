@@ -1,0 +1,63 @@
+/*
+ * The two vendored families. `assets/fonts/README.md` records where the files came from and how to
+ * regenerate them; `electron.vite.config.ts` records why they are inlined as data: URIs instead of
+ * emitted as assets.
+ *
+ * Both use `font-display: block` rather than the usual `swap`. This window measures its own text:
+ * xterm.js reads the character width once, when a Terminal is constructed, and keeps it for the
+ * life of that pane — so a face that swaps in afterwards leaves the terminal grid permanently out
+ * of step with what it is drawing. `main.tsx` waits on `document.fonts.ready` before mounting,
+ * which is what makes the block period empty in practice rather than a flash of nothing.
+ */
+
+/* Chrome. One file, two axes: `wght` for weight and `wdth` for the condensed micro-labels. */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: block;
+  src: url('../assets/fonts/archivo-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: block;
+  src: url('../assets/fonts/archivo-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+/*
+ * Code, diff and terminal. Deliberately without a `unicode-range`: the subset already decides what
+ * this face answers for, and anything outside it should reach the system stack rather than be
+ * declared missing here.
+ */
+@font-face {
+  font-family: 'Iosevka';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../assets/fonts/iosevka-400.woff2') format('woff2');
+}
+
+/*
+ * The bold face is shipped rather than synthesised. Chromium's faux bold thickens strokes without
+ * being held to the original advance width, and in a terminal that is a bent row rather than a
+ * heavier word — ANSI bold is common enough in ordinary command output to make it a certainty.
+ */
+@font-face {
+  font-family: 'Iosevka';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('../assets/fonts/iosevka-700.woff2') format('woff2');
+}

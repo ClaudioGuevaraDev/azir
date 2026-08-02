@@ -1,3 +1,4 @@
+@import './fonts.css';
 @import './tokens.css';
 
 *,
@@ -24,6 +25,12 @@ body {
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
+  /*
+   * Line numbers, ahead/behind counts and diff totals all sit in columns that
+   * change while being read. Proportional digits make those columns twitch, so
+   * the whole window opts into tabular figures and nothing has to remember to.
+   */
+  font-variant-numeric: tabular-nums;
 }
 
 /* Text the user might want to copy — paths, output, code — opts back in. */
@@ -47,6 +54,24 @@ button {
   outline-offset: 1px;
 }
 
+/*
+ * The window plays exactly one entrance — the welcome card, and the panels the
+ * first time a workspace resolves. Both use this, so `prefers-reduced-motion`
+ * below has one thing to switch off rather than a list to keep up with.
+ */
+@keyframes azir-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes azir-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -58,10 +83,30 @@ button {
 
 ::-webkit-scrollbar-thumb {
   background: var(--azir-border-strong);
-  border: 2px solid var(--azir-bg);
+  border: 2px solid transparent;
   border-radius: var(--azir-radius-lg);
+  /* Padded by the transparent border rather than inset by a matching one, so a
+     scrollbar over a panel does not carry a stripe of the window background. */
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--azir-text-dim);
+  background-clip: content-box;
+}
+
+/*
+ * Honouring the setting is not only a courtesy here: the caret blinks forever,
+ * and an animation that never stops is the kind that provokes symptoms rather
+ * than the kind that delights. It is switched to a steady bar, not hidden.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -7,67 +7,98 @@
  * the shell disagree about what "red" or "background" means, the window reads
  * as two applications stapled together. Adding a light theme later means adding
  * a second block here — not touching components.
+ *
+ * Two rules decide how colour is spent, and they explain most of what follows.
+ * The first is the README's: colour is spent on the thing that carries
+ * information — what changed. So the six git hues are the only ones allowed to
+ * mean something inside a panel. The second falls out of it: the chrome cannot
+ * borrow one of those hues, which is why the accent is cyan and why `renamed`
+ * is now the only thing that is blue. They used to be the same hex.
  */
 :root {
   /* --- Surfaces, from furthest back to closest to the user. */
-  --azir-bg: #0b0d10;
-  --azir-surface: #11151a;
-  --azir-surface-raised: #171c22;
-  --azir-surface-hover: #1d232b;
-  --azir-surface-active: #243040;
+  --azir-bg: #0a0d12;
+  --azir-surface: #10151c;
+  --azir-surface-raised: #161d26;
+  --azir-surface-hover: #1c2531;
+  --azir-surface-active: #22303f;
 
   /* --- Lines. `strong` is for focus and panel separation, not decoration. */
-  --azir-border: #222933;
-  --azir-border-strong: #323d4a;
+  --azir-border: #1f2731;
+  --azir-border-strong: #33404f;
 
-  /* --- Text. Four steps is enough for a dense tool; more invites drift. */
-  --azir-text: #d6dde6;
-  --azir-text-muted: #8b97a6;
-  --azir-text-dim: #5b6672;
-  --azir-text-inverse: #0b0d10;
+  /*
+   * --- Text. Four steps is enough for a dense tool; more invites drift.
+   *
+   * The numbers are contrast against --azir-bg, and they are the reason these
+   * four moved: `dim` is the colour of the status bar, both gutters and every
+   * path, all of it set at 11px, and at its previous value it sat at 4.0:1 —
+   * under AA for text that small. The floor here is 4.5:1 with the step above
+   * it kept far enough away that the hierarchy still reads.
+   */
+  --azir-text: #dde4ee; /* 15.2:1 */
+  --azir-text-muted: #9daabb; /* 8.3:1 */
+  --azir-text-dim: #7c8798; /* 5.4:1 */
+  --azir-text-inverse: #0a0d12;
 
-  /* --- Semantic accents. Each maps onto an ANSI hue below. */
-  --azir-accent: #4d9dff;
-  --azir-accent-hover: #6db0ff;
-  --azir-accent-subtle: #16283d;
-  --azir-success: #4ec97a;
-  --azir-warning: #e0b341;
-  --azir-danger: #f2685c;
-  --azir-info: #56b6c2;
+  /*
+   * --- Semantic accents. Each maps onto an ANSI hue below.
+   *
+   * `brass` is the one colour with no job: it is the application's own mark,
+   * and it appears in exactly three places — the wordmark, the welcome screen
+   * and the keycaps in the help overlay. It is kept out of the workspace on
+   * purpose, because at 11px it would be read as `modified`.
+   */
+  --azir-accent: #35c9e8; /* 9.9:1 on --azir-bg, so it survives as link text */
+  --azir-accent-hover: #5fd7f0;
+  --azir-accent-subtle: #0e2b33;
+  --azir-brass: #c98a3c;
+  --azir-success: #56cd80;
+  --azir-warning: #e2b447;
+  --azir-danger: #f4695d;
+  --azir-info: #35c9e8;
 
   /* --- Git status hues, used by the repository panel and the diff gutter. */
-  --azir-added: #4ec97a;
-  --azir-modified: #e0b341;
-  --azir-deleted: #f2685c;
-  --azir-untracked: #8b97a6;
-  --azir-renamed: #4d9dff;
-  --azir-conflict: #d778e8;
+  --azir-added: #56cd80;
+  --azir-modified: #e2b447;
+  --azir-deleted: #f4695d;
+  --azir-untracked: #7c8798;
+  --azir-renamed: #5aa4ff;
+  --azir-conflict: #d980ea;
 
   /* --- The xterm.js palette. Handed to the Terminal constructor verbatim. */
-  --azir-ansi-black: #0b0d10;
-  --azir-ansi-red: #f2685c;
-  --azir-ansi-green: #4ec97a;
-  --azir-ansi-yellow: #e0b341;
-  --azir-ansi-blue: #4d9dff;
-  --azir-ansi-magenta: #d778e8;
-  --azir-ansi-cyan: #56b6c2;
-  --azir-ansi-white: #d6dde6;
-  --azir-ansi-bright-black: #5b6672;
-  --azir-ansi-bright-red: #ff8579;
-  --azir-ansi-bright-green: #6fe098;
-  --azir-ansi-bright-yellow: #f5cc5f;
-  --azir-ansi-bright-blue: #79b6ff;
-  --azir-ansi-bright-magenta: #e79bf5;
-  --azir-ansi-bright-cyan: #79d2dd;
-  --azir-ansi-bright-white: #f0f4f9;
-  --azir-cursor: #4d9dff;
-  --azir-selection: #2b3d54;
+  --azir-ansi-black: #0a0d12;
+  --azir-ansi-red: #f4695d;
+  --azir-ansi-green: #56cd80;
+  --azir-ansi-yellow: #e2b447;
+  --azir-ansi-blue: #5aa4ff;
+  --azir-ansi-magenta: #d980ea;
+  --azir-ansi-cyan: #35c9e8;
+  --azir-ansi-white: #dde4ee;
+  --azir-ansi-bright-black: #7c8798;
+  --azir-ansi-bright-red: #ff8a7f;
+  --azir-ansi-bright-green: #7ce09f;
+  --azir-ansi-bright-yellow: #f2cc6b;
+  --azir-ansi-bright-blue: #85bdff;
+  --azir-ansi-bright-magenta: #eaa6f5;
+  --azir-ansi-bright-cyan: #74dcf2;
+  --azir-ansi-bright-white: #f2f6fb;
+  --azir-cursor: #35c9e8;
+  --azir-selection: #1c3742;
 
-  /* --- Type. Monospace for anything a shell or a file produced. */
+  /*
+   * --- Type. Monospace for anything a shell or a file produced.
+   *
+   * Both leading families are vendored — see assets/fonts/README.md. The system
+   * names behind them are not decoration: they are what renders if a face fails
+   * to load, and Consolas in particular is the one monospace that is always
+   * present on Windows.
+   */
   --azir-font-mono:
-    'Cascadia Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    'Iosevka', 'Cascadia Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono',
+    monospace;
   --azir-font-ui:
-    'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', system-ui,
+    'Archivo', 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui,
     sans-serif;
 
   --azir-text-xs: 11px;
@@ -75,6 +106,16 @@
   --azir-text-md: 13px;
   --azir-text-lg: 15px;
   --azir-text-xl: 20px;
+
+  /*
+   * --- Micro-labels. Panel headers, group titles and the status bar are the
+   * instrument markings of the window rather than prose, and they are set as
+   * such: condensed, tracked out, upper case. Archivo carries a width axis, so
+   * this costs a property rather than a second font file.
+   */
+  --azir-label-stretch: 78%;
+  --azir-label-tracking: 0.09em;
+  --azir-label-weight: 600;
 
   /* --- Density. A supervision tool shows rows, so rows are the unit. */
   --azir-row-height: 22px;
@@ -101,5 +142,18 @@
   --azir-code-font-size: 12px;
   --azir-code-line-height: 18px;
 
+  /*
+   * --- Light. Everything in the workspace is lit from directly above by a
+   * single hairline, which is what makes a header read as a milled edge rather
+   * than a rectangle of a different grey. Diffuse shadow is reserved for the
+   * two things that genuinely float; a panel that shares an edge with another
+   * panel does not, and casting one would be a lie about the layout.
+   */
+  --azir-hairline-top: inset 0 1px 0 rgb(255 255 255 / 5%);
+  --azir-shadow-overlay: 0 24px 64px -16px rgb(0 0 0 / 75%);
+  --azir-shadow-notice: 0 10px 28px -12px rgb(0 0 0 / 65%);
+
   --azir-transition-fast: 90ms ease-out;
+  /* Decelerating, for the one entrance the window plays. Never for a hover. */
+  --azir-ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
 }

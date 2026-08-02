@@ -9,6 +9,11 @@
   max-width: 420px;
 }
 
+/*
+ * One of the two things in the window that genuinely floats, so it is the one of the two allowed a
+ * diffuse shadow. Panels share edges and cast nothing; a notice sits over whichever panel happens
+ * to be under it, and without the shadow it reads as a hole punched in that panel.
+ */
 .notice {
   display: flex;
   align-items: flex-start;
@@ -18,7 +23,9 @@
   border-left-width: 3px;
   border-radius: var(--azir-radius-md);
   background: var(--azir-surface-raised);
+  box-shadow: var(--azir-shadow-notice);
   font-size: var(--azir-text-sm);
+  animation: azir-rise 200ms var(--azir-ease-entrance) both;
 }
 
 .notice[data-severity='info'] {

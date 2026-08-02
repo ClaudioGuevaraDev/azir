@@ -1,3 +1,9 @@
+/*
+ * The workspace stays visible under the scrim on purpose — the spec requires an overlay to preserve
+ * what it is drawn over. The blur is what makes that legible rather than merely true: a dense grid
+ * of 11px monospace read through 55% black still competes for the eye, and the dialog is usually
+ * asking about something on the panel behind it.
+ */
 .overlay {
   position: fixed;
   inset: 0;
@@ -6,7 +12,9 @@
   align-items: center;
   justify-content: center;
   padding: var(--azir-space-6);
-  background: rgb(0 0 0 / 55%);
+  background: rgb(4 6 9 / 62%);
+  backdrop-filter: blur(2px);
+  animation: azir-fade 120ms ease-out both;
 }
 
 .overlay__panel {
@@ -17,7 +25,9 @@
   border: 1px solid var(--azir-border-strong);
   border-radius: var(--azir-radius-lg);
   background: var(--azir-surface);
+  box-shadow: var(--azir-shadow-overlay);
   overflow: hidden;
+  animation: azir-rise 180ms var(--azir-ease-entrance) both;
 }
 
 .overlay__panel:focus {
@@ -30,6 +40,8 @@
   justify-content: space-between;
   padding: var(--azir-space-3) var(--azir-space-4);
   border-bottom: 1px solid var(--azir-border);
+  background: var(--azir-surface-raised);
+  box-shadow: var(--azir-hairline-top);
 }
 
 .overlay__title {
@@ -73,13 +85,20 @@
   font-size: var(--azir-text-sm);
 }
 
+/*
+ * A keycap, not a code span: brass, and seated on a bottom edge so it reads as a key with a side to
+ * it. This is the third and last place brass appears — the help overlay is a list of things to
+ * press, and giving the keys the application's own colour is what separates them from the prose
+ * describing what they do.
+ */
 kbd {
   display: inline-block;
   padding: 1px var(--azir-space-2);
   border: 1px solid var(--azir-border-strong);
+  border-bottom-width: 2px;
   border-radius: var(--azir-radius-sm);
   background: var(--azir-surface-raised);
-  color: var(--azir-text);
+  color: var(--azir-brass);
   font-family: var(--azir-font-mono);
   font-size: var(--azir-text-xs);
 }
@@ -95,12 +114,14 @@ kbd {
   margin-top: var(--azir-space-5);
 }
 
+/* Same instrument marking as the panel headers, so a settings group reads as part of the window. */
 .overlay__group-title {
   margin: 0 0 var(--azir-space-2);
   color: var(--azir-text-muted);
   font-size: var(--azir-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-stretch: var(--azir-label-stretch);
+  font-weight: var(--azir-label-weight);
+  letter-spacing: var(--azir-label-tracking);
   text-transform: uppercase;
 }
 
@@ -114,8 +135,13 @@ kbd {
   padding: var(--azir-space-1) var(--azir-space-3);
   border: 1px solid var(--azir-border-strong);
   border-radius: var(--azir-radius-sm);
+  background: var(--azir-surface-raised);
   color: var(--azir-text-muted);
   font-size: var(--azir-text-xs);
+  transition:
+    background var(--azir-transition-fast),
+    border-color var(--azir-transition-fast),
+    color var(--azir-transition-fast);
 }
 
 .overlay__choice[data-active='true'] {
@@ -125,6 +151,8 @@ kbd {
 }
 
 .overlay__choice:hover:not([data-active='true']) {
+  border-color: var(--azir-text-dim);
+  background: var(--azir-surface-hover);
   color: var(--azir-text);
 }
 
